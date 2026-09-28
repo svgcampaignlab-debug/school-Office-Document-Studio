@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="ml">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Office Document Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+Chettan+2:wght@500;700;800&family=Manjari:wght@400;700&family=Chilanka&family=Anek+Malayalam:wght@500;700;800&family=Gayathri:wght@400;700&family=Noto+Sans+Malayalam:wght@400;500;700&family=Noto+Serif+Malayalam:wght@400;700&family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+<style>
+:root{
+  --g1:#ffc6de;--g2:#ffe3a3;--g3:#b8f0dc;--g4:#bcd4ff;--g5:#e3c8ff;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --wall:#d9d2c5; --wall2:#cfc6b6; --wall-ink:#3a2f24;
+  --board:#1d3a4e; --board2:#152b3a; --chalk:#f1ede4; --chalk-dim:#b9c6cf;
+  --teak:#8a552c; --teak-d:#55321a; --brass:#d8b25a; --brass-d:#9c7a2e;
+  --paper:#fffdf8; --ink:#1c2630;
+  --sans:"Manjari","Noto Sans Malayalam","Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --display:"Baloo Chettan 2","Noto Sans Malayalam",system-ui,sans-serif;
+  --hand:"Chilanka","Manjari","Noto Sans Malayalam",cursive;
+  --wide:"Anek Malayalam","Manjari","Noto Sans Malayalam",sans-serif;
+  --serif:"Noto Serif Malayalam","Noto Sans Malayalam",Georgia,serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){ --wall-ink:#e6e1f0; --g1:#2a0f3d;--g2:#3b1530;--g3:#0f2f3a;--g4:#14204a;--g5:#241040; }
+}
+:root[data-theme="dark"]{ --wall-ink:#e6e1f0; --g1:#2a0f3d;--g2:#3b1530;--g3:#0f2f3a;--g4:#14204a;--g5:#241040; }
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100%;font-family:var(--sans);color:var(--wall-ink);font-size:16px;
+  background:linear-gradient(120deg,var(--g1),var(--g2),var(--g3),var(--g4),var(--g5),var(--g1));
+  background-size:400% 400%;animation:bgshift 24s ease-in-out infinite;
+  -webkit-font-smoothing:antialiased;}
+button,input,select,textarea{font:inherit}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 18px 48px}
+
+/* ---------- Board with teak frame ---------- */
+.board{position:relative;border-radius:22px;padding:18px;
+  background:
+    repeating-linear-gradient(92deg,rgba(255,255,255,.05) 0 2px,transparent 2px 9px),
+    linear-gradient(135deg,#a0673a,var(--teak) 40%,var(--teak-d));
+  box-shadow:0 2px 0 #3d2211,0 4px 0 #3d2211,0 6px 0 #331c0e,0 30px 60px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.25);}
+.board-face{position:relative;border-radius:12px;padding:30px 28px 34px;min-height:200px;
+  background:
+    radial-gradient(600px 300px at 10% 0%,rgba(255,120,200,.28),transparent 60%),
+    radial-gradient(600px 360px at 95% 10%,rgba(90,220,255,.25),transparent 60%),
+    radial-gradient(700px 420px at 60% 110%,rgba(255,200,80,.22),transparent 60%),
+    linear-gradient(150deg,#2a1760 0%,#1c3474 45%,#0e5568 100%);
+  box-shadow:inset 0 6px 18px rgba(0,0,0,.55),inset 0 -2px 0 rgba(255,255,255,.05);
+  color:var(--chalk);overflow:hidden;isolation:isolate}
+.board-face::before{content:"";position:absolute;inset:-40%;z-index:-1;pointer-events:none;opacity:.35;
+  background:conic-gradient(from 0deg,transparent 0 20%,rgba(255,110,196,.55) 28%,transparent 36% 52%,rgba(80,230,200,.5) 60%,transparent 68% 80%,rgba(255,210,90,.5) 88%,transparent 96%);
+  filter:blur(60px);animation:aurora 28s linear infinite}
+@keyframes aurora{to{transform:rotate(360deg)}}
+@keyframes bgshift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+/* floating background layer */
+.sky{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+.blob{position:absolute;border-radius:50%;filter:blur(70px);opacity:.55;animation:blob 22s ease-in-out infinite alternate}
+.b1{width:420px;height:420px;background:#ff7ab8;top:-120px;left:-100px}
+.b2{width:380px;height:380px;background:#5fd4ff;bottom:-140px;right:-80px;animation-delay:-8s}
+.b3{width:320px;height:320px;background:#ffd05a;top:40%;left:55%;animation-delay:-14s}
+@keyframes blob{0%{transform:translate(0,0) scale(1)}50%{transform:translate(80px,60px) scale(1.15)}100%{transform:translate(-60px,30px) scale(.9)}}
+.flyer{position:absolute;bottom:-80px;width:var(--w,34px);opacity:.8;animation:rise var(--d,18s) linear infinite;animation-delay:var(--dl,0s)}
+@keyframes rise{0%{transform:translate(0,0) rotate(0)}50%{transform:translate(var(--sx,40px),-55vh) rotate(180deg)}100%{transform:translate(0,-115vh) rotate(360deg)}}
+.screw{position:absolute;width:14px;height:14px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#fff3c4,var(--brass) 45%,var(--brass-d));
+  box-shadow:0 1px 2px rgba(0,0,0,.6)}
+.screw::after{content:"";position:absolute;left:3px;right:3px;top:6px;height:2px;background:rgba(80,55,10,.7);transform:rotate(35deg)}
+.s1{top:6px;left:6px}.s2{top:6px;right:6px}.s3{bottom:6px;left:6px}.s4{bottom:6px;right:6px}
+
+/* ---------- Brass nameplate ---------- */
+.plate{display:inline-block;margin:0 auto 6px;padding:14px 34px 10px;border-radius:10px;
+  background:linear-gradient(180deg,#f3d98f,var(--brass) 45%,#b8903a 55%,#e8c877);
+  box-shadow:0 1px 0 #7b5d1f,0 2px 0 #7b5d1f,0 3px 0 #6a4f18,0 5px 0 #5b4414,0 14px 22px rgba(0,0,0,.5),inset 0 1px 0 #fff6d6;
+  transform:perspective(700px) rotateX(10deg);}
+.plate h1{margin:0;font-family:var(--display);font-weight:800;font-size:clamp(30px,5.4vw,54px);line-height:1.15;
+  color:#5a3f0e;text-shadow:0 1px 0 rgba(255,244,200,.8),0 -1px 0 rgba(70,45,5,.55);}
+.head{text-align:center}
+.head p{margin:14px auto 0;max-width:60ch;color:#e4e9f7;font-size:17px;line-height:1.75}
+.tagline{font-family:var(--hand);font-size:clamp(20px,3vw,27px);margin:18px 0 0;line-height:1.4;
+  background:linear-gradient(90deg,#ff9bd0,#ffe07a,#8ff0d2,#9ec3ff,#ff9bd0);background-size:300% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;animation:shine 8s linear infinite}
+@keyframes shine{to{background-position:300% 0}}
+.hero{display:block;width:100%;max-width:660px;height:auto;margin:14px auto 0}
+.hero .tw{animation:tw 2.4s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes tw{0%,100%{opacity:.25;transform:scale(.6)}50%{opacity:1;transform:scale(1.15)}}
+.hero .bob{animation:bob 3.6s ease-in-out infinite;transform-box:fill-box}
+.hero .bob2{animation:bob 4.4s ease-in-out infinite reverse;transform-box:fill-box}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.hero .rise{animation:lift 3.2s ease-in-out infinite;transform-box:fill-box}
+@keyframes lift{0%,100%{transform:translateY(12px)}50%{transform:translateY(-16px)}}
+.hero .dash{stroke-dasharray:6 8;animation:dash 1.4s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-28}}
+.hero .pulse{animation:pulse 2s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+.ai-state{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:6px 14px;border-radius:999px;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);font-size:13px;color:var(--chalk)}
+.dot{width:9px;height:9px;border-radius:50%;background:#8a9aa6}
+.dot.on{background:#4fd18b;box-shadow:0 0 10px #4fd18b}
+.dot.off{background:#e0a24a}
+
+/* ---------- 3D tiles ---------- */
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:26px;margin-top:34px;perspective:1100px}
+.tile{animation:pop .7s cubic-bezier(.2,1.4,.4,1) backwards;animation-delay:var(--i,0s)}
+@keyframes pop{from{opacity:0;transform:rotateX(40deg) translateY(40px) scale(.9)}}
+.tile h2{font-family:var(--wide)!important;font-weight:800!important;letter-spacing:.2px}
+.ws-top h2,.drop strong,.ov-card p{font-family:var(--wide)!important}
+.tile p,.ws-top .sub{font-family:var(--sans);font-size:15px}
+.btn{font-family:var(--wide)}
+@media (max-width:860px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:520px){.grid{grid-template-columns:1fr;gap:20px}.board-face{padding:22px 14px 26px}.wrap{padding:16px 10px 36px}}
+.tile{--c:#e0892b;--cd:#9c5a14;--rx:6deg;--ry:0deg;--lift:0px;
+  position:relative;text-align:left;cursor:pointer;border:0;border-radius:20px;padding:22px 20px 20px;color:#fff;
+  background:linear-gradient(155deg,color-mix(in srgb,var(--c) 70%,#fff) 0%,var(--c) 38%,var(--cd) 100%);
+  transform:rotateX(var(--rx)) rotateY(var(--ry)) translateY(var(--lift));transform-style:preserve-3d;
+  box-shadow:0 1px 0 var(--cd),0 2px 0 var(--cd),0 3px 0 var(--cd),0 4px 0 var(--cd),0 5px 0 var(--cd),0 6px 0 var(--cd),
+    0 7px 0 color-mix(in srgb,var(--cd) 80%,#000),0 8px 0 color-mix(in srgb,var(--cd) 70%,#000),0 22px 28px rgba(0,0,0,.45);
+  transition:transform .18s ease,box-shadow .18s ease;min-height:176px}
+.tile::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.35),rgba(255,255,255,0) 42%);mix-blend-mode:soft-light}
+.tile::after{content:"";position:absolute;inset:6px;border-radius:15px;border:1px solid rgba(255,255,255,.28);pointer-events:none}
+.tile:hover{--lift:-6px}
+.tile:active{--lift:5px;box-shadow:0 1px 0 var(--cd),0 2px 0 var(--cd),0 3px 0 var(--cd),0 8px 12px rgba(0,0,0,.4)}
+.tile:focus-visible{outline:3px solid var(--brass);outline-offset:6px}
+.tile .ico{width:58px;height:58px;border-radius:16px;display:grid;place-items:center;margin-bottom:14px;animation:bob 3.4s ease-in-out infinite;animation-delay:var(--i,0s);
+  background:rgba(255,255,255,.2);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 6px 12px rgba(0,0,0,.25);transform:translateZ(30px)}
+.tile .ico svg{width:32px;height:32px}
+.tile h2{margin:0 0 6px;font-family:var(--display);font-weight:700;font-size:23px;line-height:1.2;transform:translateZ(22px);text-shadow:0 2px 3px rgba(0,0,0,.3)}
+.tile p{margin:0;font-size:14px;line-height:1.6;opacity:.94;transform:translateZ(14px)}
+.ai-pill{position:absolute;top:16px;right:16px;font:800 12px/1 "Manrope",sans-serif;padding:6px 9px;border-radius:8px;color:#4a360c;
+  background:linear-gradient(180deg,#fbe7a6,var(--brass));box-shadow:0 2px 0 var(--brass-d),0 4px 8px rgba(0,0,0,.3);transform:translateZ(36px)}
+
+/* ---------- Workspace ---------- */
+.ws{display:none}
+.ws.show{display:block}
+.home.hide{display:none}
+.ws-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:20px}
+.ws-top h2{margin:0;font-family:var(--display);font-size:clamp(24px,3.6vw,32px);font-weight:800;color:var(--chalk)}
+.ws-top .sub{flex-basis:100%;margin:0;color:var(--chalk-dim);font-size:14.5px;line-height:1.6}
+.ws-body{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:26px;align-items:start}
+@media (max-width:900px){.ws-body{grid-template-columns:1fr}}
+.form{display:grid;gap:12px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fld label{display:block;font-family:var(--wide);font-weight:500;font-size:14px;color:#d6def0;margin:0 0 5px}
+.fld input,.fld select,.fld textarea{width:100%;padding:10px 12px;border-radius:10px;color:var(--chalk);
+  background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.16);box-shadow:inset 0 2px 5px rgba(0,0,0,.35);outline:none}
+.fld select option{color:#111}
+.fld textarea{min-height:88px;resize:vertical;line-height:1.6}
+.fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--brass);box-shadow:inset 0 2px 5px rgba(0,0,0,.35),0 0 0 3px rgba(216,178,90,.25)}
+.chk{display:flex;gap:9px;align-items:flex-start;font-size:14px;line-height:1.5;color:var(--chalk)}
+.chk input{margin-top:4px;accent-color:var(--brass)}
+.hint{font-family:var(--hand);font-size:15px;line-height:1.6;color:#c9d6ec;margin:0}
+.drop{display:grid;place-items:center;text-align:center;gap:6px;padding:26px 16px;border-radius:14px;cursor:pointer;
+  border:2px dashed rgba(255,255,255,.28);background:rgba(0,0,0,.18);color:var(--chalk);transition:background .15s}
+.drop.over,.drop:hover{background:rgba(216,178,90,.12);border-color:var(--brass)}
+.drop strong{font-family:var(--display);font-size:19px}
+.drop span{font-size:13px;color:var(--chalk-dim)}
+.drop input{display:none}
+
+.btn{--b:#d8b25a;--bd:#8e6d25;--bt:#3f2d07;border:0;cursor:pointer;border-radius:12px;padding:11px 16px;font-weight:700;font-size:14.5px;
+  color:var(--bt);background:linear-gradient(180deg,color-mix(in srgb,var(--b) 60%,#fff),var(--b));
+  box-shadow:0 1px 0 var(--bd),0 2px 0 var(--bd),0 3px 0 var(--bd),0 4px 0 var(--bd),0 9px 14px rgba(0,0,0,.35);
+  transform:translateY(0);transition:transform .08s,box-shadow .08s;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn:hover{filter:brightness(1.05)}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--bd),0 4px 8px rgba(0,0,0,.3)}
+.btn:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.btn.ghost{--b:#3b5a70;--bd:#1a2f3d;--bt:#f1ede4}
+.btn.red{--b:#c9483f;--bd:#7a211b;--bt:#fff}
+.btn.blue{--b:#4a6fcf;--bd:#233f8a;--bt:#fff}
+.btn.green{--b:#3a9b4b;--bd:#1c5a26;--bt:#fff}
+.btn.full{width:100%}
+.back{padding:8px 14px}
+
+/* paper */
+.desk{position:relative}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.sheet-wrap{position:relative;padding-top:14px}
+.clip{position:absolute;top:0;left:50%;transform:translateX(-50%);width:120px;height:30px;border-radius:8px 8px 4px 4px;z-index:2;
+  background:linear-gradient(180deg,#f0f2f4,#a9b1b8 60%,#7e878f);box-shadow:0 4px 8px rgba(0,0,0,.45),inset 0 1px 0 #fff}
+.paper{position:relative;background:var(--paper);color:var(--ink);border-radius:4px;min-height:560px;
+  padding:48px 52px;font-family:var(--serif);font-size:15.5px;line-height:1.85;outline:none;
+  box-shadow:0 1px 1px rgba(0,0,0,.15),0 12px 24px rgba(0,0,0,.35),0 30px 60px rgba(0,0,0,.25);
+  transform:perspective(1400px) rotateX(1.2deg);overflow-x:auto}
+@media (max-width:520px){.paper{padding:30px 20px;font-size:14.5px}}
+.paper:focus{box-shadow:0 0 0 3px rgba(216,178,90,.6),0 12px 24px rgba(0,0,0,.35)}
+.paper p{margin:0 0 12px}
+.paper h1{font-family:var(--display);font-size:26px;line-height:1.3;margin:0 0 14px}
+.paper h2{font-family:var(--display);font-size:20px;line-height:1.35;margin:22px 0 10px}
+.paper h3{font-size:16.5px;margin:16px 0 8px}
+.paper ul,.paper ol{margin:0 0 12px;padding-left:26px}
+.paper table{border-collapse:collapse;width:100%;font-family:var(--sans);font-size:13px;line-height:1.45;margin:6px 0 14px}
+.paper th,.paper td{border:1px solid #9aa4ad;padding:6px 8px;text-align:left;vertical-align:top}
+.paper th{background:#e8edf1}
+.paper .right{text-align:right}
+.paper .center{text-align:center}
+.paper .indent{padding-left:40px}
+.paper .body{text-indent:40px;text-align:justify}
+.paper .lh{text-align:center;border-bottom:2px solid #1c2630;padding-bottom:10px;margin-bottom:18px}
+.paper .lh h1{margin:0}
+.paper .pg{font-family:var(--sans);font-size:12px;color:#7a8791;border-top:1px dashed #b7c0c7;padding-top:4px;margin:18px 0 12px}
+.paper .tip{background:#fff5d9;border-left:4px solid #d8b25a;padding:8px 12px;margin:0 0 12px}
+.empty{display:grid;place-items:center;min-height:460px;text-align:center;color:#7a8791;font-family:var(--sans)}
+.empty svg{width:64px;height:64px;opacity:.5;margin-bottom:10px}
+
+/* overlay */
+.ov{position:fixed;inset:0;display:none;place-items:center;background:rgba(10,18,26,.6);backdrop-filter:blur(3px);z-index:50}
+.ov.show{display:grid}
+.ov-card{background:linear-gradient(160deg,var(--board),var(--board2));color:var(--chalk);padding:26px 28px;border-radius:16px;min-width:260px;max-width:90vw;text-align:center;
+  box-shadow:0 0 0 8px var(--teak),0 30px 60px rgba(0,0,0,.5)}
+.spin{width:44px;height:44px;margin:0 auto 14px;border-radius:50%;border:4px solid rgba(255,255,255,.18);border-top-color:var(--brass);animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.ov-card p{margin:0 0 16px;line-height:1.6}
+.toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(30px);opacity:0;z-index:60;
+  background:#1b2733;color:#fff;padding:12px 18px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);max-width:90vw;font-size:14px;line-height:1.5;transition:.25s}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.foot{text-align:center;margin-top:22px;font-size:13px;color:var(--wall-ink);opacity:.75}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}.tile{--rx:0deg!important}}
+/* print clone */
+.printing{transform:none!important;box-shadow:none!important;border-radius:0!important;min-height:0!important;padding:0!important;overflow:visible!important;background:#fff!important}
+</style>
+</head>
+<body>
+<div class="sky" id="sky" aria-hidden="true"><i class="blob b1"></i><i class="blob b2"></i><i class="blob b3"></i></div>
+<div class="wrap">
+  <div class="board">
+    <i class="screw s1"></i><i class="screw s2"></i><i class="screw s3"></i><i class="screw s4"></i>
+    <div class="board-face">
+
+      <!-- HOME -->
+      <section class="home" id="home">
+        <div class="head">
+          <div class="plate"><h1>Office Document Studio</h1></div>
+          <p class="tagline">എഴുതാം · മാറ്റാം · മനോഹരമാക്കാം</p>
+          <svg class="hero" viewBox="0 0 660 230" role="img" aria-label="കത്തും രേഖകളും പറക്കുന്ന ചിത്രം">
+            <defs>
+              <linearGradient id="gEnv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd36e"/><stop offset="1" stop-color="#f29a3a"/></linearGradient>
+              <linearGradient id="gFlap" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb24d"/><stop offset="1" stop-color="#e07c22"/></linearGradient>
+              <linearGradient id="gBulb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9af5d8"/><stop offset="1" stop-color="#2bb393"/></linearGradient>
+            </defs>
+            <path class="dash" d="M40 170 C150 40, 250 40, 330 95 S520 180, 620 60" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="2.5"/>
+            <g id="plane"><path d="M0 0 L26 -9 L6 6 Z" fill="#fff"/><path d="M6 6 L26 -9 L10 10 Z" fill="#cfe0ff"/>
+              <animateMotion dur="7s" repeatCount="indefinite" rotate="auto" path="M40 170 C150 40, 250 40, 330 95 S520 180, 620 60"/></g>
+            <!-- PDF doc -->
+            <g class="bob"><rect x="40" y="96" width="78" height="100" rx="10" fill="#fff"/><path d="M96 96 h12 a10 10 0 0 1 10 10 v12 h-22z" fill="#e8ecf5"/>
+              <rect x="52" y="116" width="44" height="6" rx="3" fill="#cdd5e3"/><rect x="52" y="130" width="54" height="6" rx="3" fill="#cdd5e3"/><rect x="52" y="144" width="36" height="6" rx="3" fill="#cdd5e3"/>
+              <rect x="30" y="160" width="58" height="26" rx="8" fill="#e5484d"/><text x="59" y="179" text-anchor="middle" font-family="Manrope,sans-serif" font-weight="800" font-size="15" fill="#fff">PDF</text></g>
+            <path class="dash" d="M126 150 H176" stroke="#ffe07a" stroke-width="4" stroke-linecap="round"/><path d="M174 140 l12 10 -12 10" fill="none" stroke="#ffe07a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- DOC -->
+            <g class="bob2"><rect x="192" y="100" width="72" height="94" rx="10" fill="#fff"/>
+              <rect x="204" y="118" width="48" height="6" rx="3" fill="#b9ccff"/><rect x="204" y="132" width="40" height="6" rx="3" fill="#b9ccff"/><rect x="204" y="146" width="48" height="6" rx="3" fill="#b9ccff"/>
+              <rect x="210" y="160" width="60" height="26" rx="8" fill="#3b6fe0"/><text x="240" y="179" text-anchor="middle" font-family="Manrope,sans-serif" font-weight="800" font-size="15" fill="#fff">DOC</text></g>
+            <!-- Envelope with rising letter -->
+            <g transform="translate(290 70)">
+              <g class="rise"><rect x="14" y="0" width="92" height="96" rx="6" fill="#fffdf6"/>
+                <text x="60" y="30" text-anchor="middle" font-family="Baloo Chettan 2,sans-serif" font-weight="800" font-size="22" fill="#6a3fd0">കത്ത്</text>
+                <rect x="28" y="44" width="64" height="5" rx="2.5" fill="#e3d8ff"/><rect x="28" y="56" width="52" height="5" rx="2.5" fill="#e3d8ff"/></g>
+              <rect x="0" y="62" width="120" height="84" rx="10" fill="url(#gEnv)"/>
+              <path d="M0 72 L60 118 L120 72 V136 a10 10 0 0 1 -10 10 H10 a10 10 0 0 1 -10 -10z" fill="url(#gFlap)"/>
+              <circle class="pulse" cx="60" cy="112" r="13" fill="#d63a4a"/><circle cx="60" cy="112" r="6" fill="#ff8f9b"/>
+            </g>
+            <!-- XLS -->
+            <g class="bob"><rect x="440" y="98" width="84" height="84" rx="12" fill="#fff"/>
+              <path d="M440 124 H524 M440 152 H524 M468 98 V182 M496 98 V182" stroke="#7fd89a" stroke-width="3"/>
+              <rect x="452" y="166" width="60" height="26" rx="8" fill="#23a052"/><text x="482" y="185" text-anchor="middle" font-family="Manrope,sans-serif" font-weight="800" font-size="15" fill="#fff">XLS</text></g>
+            <!-- Help bulb + AI -->
+            <g class="bob2"><circle cx="584" cy="146" r="30" fill="url(#gBulb)"/><rect x="572" y="174" width="24" height="12" rx="4" fill="#e9eef7"/>
+              <text x="584" y="158" text-anchor="middle" font-family="Manrope,sans-serif" font-weight="800" font-size="30" fill="#fff">?</text></g>
+            <g class="pulse"><rect x="560" y="70" width="46" height="26" rx="13" fill="#ffd96b"/><text x="583" y="89" text-anchor="middle" font-family="Manrope,sans-serif" font-weight="800" font-size="14" fill="#4a360c">AI</text></g>
+            <!-- sparkles -->
+            <path class="tw" d="M150 50 l4 10 10 4 -10 4 -4 10 -4 -10 -10 -4 10 -4z" fill="#ffe07a"/>
+            <path class="tw" style="animation-delay:-.8s" d="M430 40 l3 8 8 3 -8 3 -3 8 -3 -8 -8 -3 8 -3z" fill="#ff9bd0"/>
+            <path class="tw" style="animation-delay:-1.6s" d="M270 30 l3 7 7 3 -7 3 -3 7 -3 -7 -7 -3 7 -3z" fill="#8ff0d2"/>
+            <path class="tw" style="animation-delay:-1.2s" d="M630 180 l3 7 7 3 -7 3 -3 7 -3 -7 -7 -3 7 -3z" fill="#9ec3ff"/>
+            <circle class="tw" style="animation-delay:-.4s" cx="20" cy="70" r="4" fill="#fff"/>
+          </svg>
+          <p>കത്തുകൾ എഴുതാനും, സഹായ രേഖ തയ്യാറാക്കാനും, PDF, Word, Excel ഫയലുകൾ മാറ്റാനും ഒരൊറ്റ ബോർഡ്. ഒരു ടൂൾ തിരഞ്ഞെടുക്കുക.</p>
+          
+        </div>
+        <div class="grid" id="grid"></div>
+      </section>
+
+      <!-- WORKSPACE -->
+      <section class="ws" id="ws">
+        <div class="ws-top">
+          <button class="btn ghost back" id="backBtn">‹ ബോർഡിലേക്ക്</button>
+          <h2 id="wsTitle"></h2>
+          <p class="sub" id="wsSub"></p>
+        </div>
+        <div class="ws-body">
+          <div class="form" id="form"></div>
+          <div class="desk">
+            <div class="toolbar">
+              <button class="btn red" id="pdfBtn">PDF ഡൗൺലോഡ്</button>
+              <button class="btn blue" id="docBtn">Word (.docx) ഡൗൺലോഡ്</button>
+              <button class="btn ghost" id="copyBtn">എഴുത്ത് പകർത്തുക</button>
+            </div>
+            <div class="sheet-wrap">
+              <div class="clip"></div>
+              <div class="paper" id="paper" contenteditable="true" spellcheck="false"></div>
+            </div>
+            <p class="hint" style="margin-top:12px">പേപ്പറിൽ നേരിട്ട് ക്ലിക്ക് ചെയ്ത് തിരുത്താം. ഡൗൺലോഡ് ചെയ്യുമ്പോൾ തിരുത്തിയ രൂപമാണ് ലഭിക്കുക.</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+  <p class="foot">ഫയലുകൾ നിങ്ങളുടെ ബ്രൗസറിൽ തന്നെയാണ് പ്രോസസ്സ് ചെയ്യുന്നത്. AI ബട്ടൺ അമർത്തുമ്പോൾ മാത്രം ആവശ്യമായ എഴുത്ത് AI-ക്ക് അയയ്ക്കുന്നു.</p>
+</div>
+
+<div class="ov" id="ov"><div class="ov-card"><div class="spin"></div><p id="ovText">AI എഴുതുന്നു…</p><button class="btn ghost" id="ovStop">നിർത്തുക</button></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= basics ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nl2br = s => esc(s).replace(/\n/g,'<br>');
+const lines = s => String(s||'').split('\n').map(x=>x.trim()).filter(Boolean);
+const today = () => { const d=new Date(); return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear(); };
+const v = id => ($('#'+id)?.value || '').trim();
+let SAMPLE=null, DL=null, IMG_OK=false, CUR=null;
+let toastT;
+function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),3800); }
+const paper = $('#paper');
+const EMPTY = msg => `<div class="empty" contenteditable="false"><div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/><path d="M9 13h8M9 17h6"/></svg><div>${msg}</div></div></div>`;
+
+/* ================= runtime capabilities ================= */
+(async () => {
+  await null;
+  try {
+    if (window.claude && claude.use) {
+      const [s, d] = await Promise.all([claude.use('sample'), claude.use('downloads')]);
+      SAMPLE = s; DL = d;
+      if (SAMPLE) { const l = await SAMPLE.limits().catch(()=>null); IMG_OK = !!(l && l.images); }
+    }
+  } catch(e) {}
+  refreshAI();
+})();
+let KEY = ''; try { KEY = localStorage.getItem('ods_api_key') || ''; } catch(e){}
+const AI_ON = () => !!(SAMPLE || KEY);
+function refreshAI(){
+  if (!SAMPLE && KEY) IMG_OK = true;
+}
+function askKey(){
+  const k = prompt('Anthropic API കീ നൽകുക (console.anthropic.com-ൽ നിന്ന് ലഭിക്കും).\nകീ ഈ കമ്പ്യൂട്ടറിലെ ബ്രൗസറിൽ മാത്രമേ സൂക്ഷിക്കൂ. നീക്കം ചെയ്യാൻ ഒഴിവാക്കി OK അമർത്തുക.', KEY);
+  if (k === null) return;
+  KEY = k.trim(); try { KEY ? localStorage.setItem('ods_api_key', KEY) : localStorage.removeItem('ods_api_key'); } catch(e){}
+  refreshAI(); toast(KEY ? 'API കീ സേവ് ചെയ്തു.' : 'API കീ നീക്കം ചെയ്തു.');
+}
+const blobToB64 = b => new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(',')[1]); r.onerror=rej; r.readAsDataURL(b); });
+async function directAI(prompt, opts){
+  const content = [];
+  if (opts.images) content.push({type:'image', source:{type:'base64', media_type:'image/jpeg', data: await blobToB64(opts.images)}});
+  content.push({type:'text', text: prompt + '\n\nRespond with the JSON only, no code fences.'});
+  const r = await fetch('https://api.anthropic.com/v1/messages', {method:'POST', signal: opts.signal,
+    headers:{'content-type':'application/json','x-api-key':KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body: JSON.stringify({model:'claude-sonnet-5', max_tokens:8000, messages:[{role:'user', content}]})});
+  const d = await r.json();
+  if (!r.ok) throw {message: (d && d.error && d.error.message) || ('HTTP ' + r.status)};
+  const txt = (d.content||[]).filter(x=>x.type==='text').map(x=>x.text).join('').replace(/```json|```/g,'').trim();
+  const a = txt.search(/[\[{]/), z = Math.max(txt.lastIndexOf('}'), txt.lastIndexOf(']'));
+  return JSON.parse(txt.slice(a, z+1));
+}
+
+let aiCtrl=null;
+$('#ovStop').onclick = () => aiCtrl && aiCtrl.abort();
+function busy(on, text){ $('#ovText').textContent = text||'പ്രവർത്തിക്കുന്നു…'; $('#ov').classList.toggle('show', on); $('#ovStop').style.display = aiCtrl ? '' : 'none'; }
+async function ai(label, prompt, opts={}){
+  if (!AI_ON()) askKey();
+  if (!AI_ON()) return null;
+  aiCtrl = new AbortController(); busy(true, label);
+  try { return SAMPLE ? await SAMPLE.json(prompt, {...opts, signal: aiCtrl.signal}) : await directAI(prompt, {...opts, signal: aiCtrl.signal}); }
+  catch(e){
+    const c = e && e.code;
+    if (c==='cancelled' || (e && e.name==='AbortError')) toast('AI നിർത്തി.');
+    else if (c==='not_granted') toast('AI ഉപയോഗിക്കാൻ അനുമതി നൽകിയിട്ടില്ല.');
+    else if (c==='rate_limited') toast('ഒരുപാട് അഭ്യർത്ഥനകൾ. അല്പസമയം കഴിഞ്ഞ് വീണ്ടും ശ്രമിക്കുക.');
+    else toast('AI പിശക്: ' + ((e && e.message) || 'അറിയില്ല'));
+    return null;
+  } finally { aiCtrl=null; busy(false); }
+}
+
+/* ================= downloads ================= */
+async function saveFile(filename, data){
+  if (!DL){
+    const blob = data instanceof Blob ? data : new Blob([data]);
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+    toast('ഡൗൺലോഡ് ചെയ്തു: ' + filename); return;
+  }
+  try { await DL.save({filename, data}); toast('സേവ് ചെയ്തു: ' + filename); }
+  catch(e){ if (e && e.code==='declined') toast('ഡൗൺലോഡ് റദ്ദാക്കി.'); else toast('ഡൗൺലോഡ് പിശക്: ' + ((e&&e.message)||'')); }
+}
+function hasContent(){ return !paper.querySelector('.empty') && paper.innerText.trim().length>0; }
+function baseName(){ return (CUR && CUR.file) || (CUR ? CUR.fname : 'document'); }
+
+$('#pdfBtn').onclick = async () => {
+  if (!hasContent()) return toast('ആദ്യം രേഖ തയ്യാറാക്കുക.');
+  const land = CUR && CUR.landscape && CUR.landscape();
+  const clone = paper.cloneNode(true);
+  clone.removeAttribute('contenteditable'); clone.removeAttribute('id');
+  clone.classList.add('printing');
+  clone.style.width = land ? '1030px' : '700px';
+  busy(true, 'PDF തയ്യാറാക്കുന്നു…');
+  try {
+    await document.fonts.ready;
+    const blob = await html2pdf().set({
+      margin:[14,14,14,14], image:{type:'jpeg',quality:0.97},
+      html2canvas:{scale:2, backgroundColor:'#ffffff', useCORS:true},
+      jsPDF:{unit:'mm', format:'a4', orientation: land?'landscape':'portrait'},
+      pagebreak:{mode:['css','legacy'], avoid:['tr','h1','h2','h3','li','.tip']}
+    }).from(clone).outputPdf('blob');
+    busy(false);
+    await saveFile(baseName() + '.pdf', blob);
+  } catch(e){ busy(false); toast('PDF പിശക്: ' + (e.message||e)); }
+};
+
+$('#docBtn').onclick = async () => {
+  if (!hasContent()) return toast('ആദ്യം രേഖ തയ്യാറാക്കുക.');
+  busy(true, 'Word ഫയൽ തയ്യാറാക്കുന്നു…');
+  try {
+    const blob = await toDocx(paper, CUR && CUR.landscape && CUR.landscape());
+    busy(false);
+    await saveFile(baseName() + '.docx', blob);
+  } catch(e){ busy(false); toast('Word പിശക്: ' + (e.message||e)); }
+};
+
+$('#copyBtn').onclick = async () => {
+  if (!hasContent()) return toast('പകർത്താൻ ഒന്നുമില്ല.');
+  try { await navigator.clipboard.writeText(paper.innerText); toast('പകർത്തി.'); }
+  catch(e){ const r=document.createRange(); r.selectNodeContents(paper); const s=getSelection(); s.removeAllRanges(); s.addRange(r); toast('എഴുത്ത് തിരഞ്ഞെടുത്തു — Ctrl+C അമർത്തുക.'); }
+};
+
+/* ================= HTML → DOCX ================= */
+async function toDocx(root, landscape){
+  const D = window.docx;
+  const FONT = {ascii:'Calibri', hAnsi:'Calibri', cs:'Nirmala UI', eastAsia:'Calibri'};
+  const out = [];
+  const runs = (node, st={}) => {
+    const r = [];
+    node.childNodes.forEach(n => {
+      if (n.nodeType===3){ const t=n.textContent.replace(/\s+/g,' '); if(t) r.push(new D.TextRun({text:t, bold:st.b, italics:st.i, underline:st.u?{}:undefined, size:st.size, font:FONT})); }
+      else if (n.nodeType===1){
+        const tg=n.tagName;
+        if (tg==='BR') r.push(new D.TextRun({text:'', break:1}));
+        else r.push(...runs(n, {...st, b: st.b||/^(B|STRONG|TH)$/.test(tg), i: st.i||/^(I|EM)$/.test(tg), u: st.u||tg==='U'}));
+      }
+    });
+    return r;
+  };
+  const align = el => { const a=getComputedStyle(el).textAlign; return a==='right'||a==='end' ? D.AlignmentType.RIGHT : a==='center' ? D.AlignmentType.CENTER : a==='justify' ? D.AlignmentType.JUSTIFIED : D.AlignmentType.LEFT; };
+  const sizes = {H1:36, H2:30, H3:26, H4:24};
+  const para = (el, extra={}) => {
+    const sz = sizes[el.tagName];
+    const rs = runs(el, {b: !!sz, size: sz});
+    return new D.Paragraph({children: rs.length?rs:[new D.TextRun('')], alignment: align(el), spacing:{after:140, line:300},
+      indent: el.classList && el.classList.contains('indent') ? {left:720} : (el.classList && el.classList.contains('body') ? {firstLine:720} : undefined), ...extra});
+  };
+  const BLOCK = /^(P|H1|H2|H3|H4|H5|H6|UL|OL|TABLE|DIV|SECTION|ARTICLE|BLOCKQUOTE|HR|HEADER|FOOTER)$/;
+  const walk = container => {
+    container.childNodes.forEach(n => {
+      if (n.nodeType===3){ if (n.textContent.trim()) out.push(new D.Paragraph({children:[new D.TextRun({text:n.textContent.trim(), font:FONT})]})); return; }
+      if (n.nodeType!==1) return;
+      const tg = n.tagName;
+      if (n.classList.contains('empty')) return;
+      if (n.classList.contains('pg')){ out.push(new D.Paragraph({children:[], pageBreakBefore:true})); return; }
+      if (/^H\d$|^P$/.test(tg)) out.push(para(n));
+      else if (tg==='UL' || tg==='OL'){
+        let k=0;
+        n.querySelectorAll(':scope > li').forEach(li => {
+          k++;
+          const pre = tg==='OL' ? [new D.TextRun({text:k+'. ', font:FONT})] : [new D.TextRun({text:'•  ', font:FONT})];
+          out.push(new D.Paragraph({children:[...pre, ...runs(li)], indent:{left:540, hanging:300}, spacing:{after:80}}));
+        });
+      }
+      else if (tg==='TABLE'){
+        const rows = [...n.querySelectorAll('tr')].map(tr => new D.TableRow({children:
+          [...tr.children].map(td => new D.TableCell({children:[new D.Paragraph({children: runs(td, {b: td.tagName==='TH', size:18})})],
+            shading: td.tagName==='TH' ? {fill:'E8EDF1'} : undefined}))}));
+        if (rows.length) out.push(new D.Table({rows, width:{size:100, type:D.WidthType.PERCENTAGE}}));
+        out.push(new D.Paragraph({children:[]}));
+      }
+      else if (tg==='HR') out.push(new D.Paragraph({children:[], border:{bottom:{style:D.BorderStyle.SINGLE, size:6, color:'1C2630'}}}));
+      else if (BLOCK.test(tg)){
+        const hasBlock = [...n.children].some(c => BLOCK.test(c.tagName) || c.tagName==='LI');
+        if (hasBlock) walk(n);
+        else if (n.textContent.trim()) out.push(para(n, n.classList.contains('tip') ? {shading:{fill:'FFF5D9'}} : {}));
+      }
+      else if (n.textContent.trim()) out.push(para(n));
+    });
+  };
+  walk(root);
+  const doc = new D.Document({
+    styles:{default:{document:{run:{font:FONT, size:23}}}},
+    sections:[{properties:{page:{size:{orientation: landscape ? D.PageOrientation.LANDSCAPE : D.PageOrientation.PORTRAIT}, margin:{top:1000,bottom:1000,left:1000,right:1000}}}, children: out}]
+  });
+  return D.Packer.toBlob(doc);
+}
+
+/* ================= form helpers ================= */
+const F = (id, label, type='text', extra='') => {
+  if (type==='textarea') return `<div class="fld"><label for="${id}">${label}</label><textarea id="${id}" ${extra}></textarea></div>`;
+  return `<div class="fld"><label for="${id}">${label}</label><input id="${id}" type="${type}" ${extra}></div>`;
+};
+const SEL = (id, label, opts) => `<div class="fld"><label for="${id}">${label}</label><select id="${id}">${opts.map(o=>`<option value="${o[0]}">${o[1]}</option>`).join('')}</select></div>`;
+const LANG = SEL('lang','ഭാഷ',[['ml','മലയാളം'],['en','English']]);
+const DROP = (id, title, acc, note) => `<label class="drop" id="${id}Zone"><input type="file" id="${id}" accept="${acc}"><strong>${title}</strong><span>${note}</span></label>`;
+function wireDrop(id, onFile){
+  const z=$('#'+id+'Zone'), inp=$('#'+id);
+  inp.onchange = () => inp.files[0] && onFile(inp.files[0]);
+  ['dragenter','dragover'].forEach(e=>z.addEventListener(e,ev=>{ev.preventDefault();z.classList.add('over')}));
+  ['dragleave','drop'].forEach(e=>z.addEventListener(e,ev=>{ev.preventDefault();z.classList.remove('over')}));
+  z.addEventListener('drop', ev => { const f=ev.dataTransfer.files[0]; f && onFile(f); });
+}
+const L = {
+  ml:{from:'പ്രേഷകൻ', to:'സ്വീകർത്താവ്', sub:'വിഷയം', ref:'സൂചന', sir:'സർ,', yours:'വിശ്വസ്തതയോടെ', enc:'ഉള്ളടക്കം', place:'സ്ഥലം', date:'തീയതി', copy:'പകർപ്പ്', no:'നമ്പർ'},
+  en:{from:'From', to:'To', sub:'Sub', ref:'Ref', sir:'Sir/Madam,', yours:'Yours faithfully,', enc:'Enclosures', place:'Place', date:'Date', copy:'Copy to', no:'No.'}
+};
+
+/* ================= TOOLS ================= */
+const ICONS = {
+  cover:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>',
+  official:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v15H6z"/><path d="M9 12h8M9 16h5"/><circle cx="15.5" cy="18.5" r="2.5"/></svg>',
+  help:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4z"/><path d="M20 4h-4a2 2 0 0 0-2 2"/><path d="M17 11v.01M17 8a1.5 1.5 0 0 1 1 2.6"/></svg>',
+  pdf2doc:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h7l3 3v6H4z"/><path d="M12 14h8v7h-8z"/><path d="M7 15v3h3"/><path d="m7 18 3-3"/></svg>',
+  doc2pdf:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h8v9H4z"/><path d="M6 6h4M6 9h3"/><path d="M13 12h7v9h-7z"/><path d="M15 15h3"/><path d="m8 15 3 3-3 3"/></svg>',
+  excel:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>'
+};
+
+const TOOLS = [
+/* ---------- 1. Covering letter (AI) ---------- */
+{ id:'cover', ai:true, c:'#e38a2a', cd:'#94500d', title:'കവറിങ് ലെറ്റർ', fname:'covering-letter',
+  sub:'അയക്കുന്ന രേഖകളുടെ വിവരം നൽകിയാൽ AI ഔപചാരികമായ കവറിങ് ലെറ്റർ എഴുതും.',
+  form(){ return `${LANG}
+    <div class="row2">${F('fName','അയക്കുന്നയാളുടെ പേര്')}${F('fDesig','ഉദ്യോഗപ്പേര്')}</div>
+    ${F('fOffice','ഓഫീസ് / വിലാസം','textarea','style="min-height:60px"')}
+    <div class="row2">${F('tDesig','സ്വീകർത്താവ് (ഉദ്യോഗപ്പേര്)')}${F('tOffice','സ്വീകർത്താവിന്റെ ഓഫീസ്')}</div>
+    ${F('subj','വിഷയം')}
+    ${F('ref','സൂചന (ഉണ്ടെങ്കിൽ)')}
+    ${F('encl','അയക്കുന്ന രേഖകൾ (ഓരോന്നും ഓരോ വരിയിൽ)','textarea')}
+    ${F('purpose','ഉദ്ദേശ്യം / പ്രത്യേക വിവരങ്ങൾ','textarea','placeholder="ഉദാ: ആവശ്യപ്പെട്ട പ്രകാരം രേഖകൾ പരിശോധനയ്ക്കായി അയയ്ക്കുന്നു"')}
+    <div class="row2">${F('place','സ്ഥലം')}${F('date','തീയതി','text','value="'+today()+'"')}</div>
+    <div class="row2"><button class="btn green" id="manual">നേരിട്ട് തയ്യാറാക്കുക</button><button class="btn" data-ai id="go">✦ AI ഉപയോഗിച്ച്</button></div>
+    <p class="hint">"നേരിട്ട്" അമർത്തിയാൽ AI ഇല്ലാതെ, തയ്യാറാക്കിയ മാതൃകയിൽ കത്ത് ഉണ്ടാകും. പേപ്പറിൽ തിരുത്താം.</p>`; },
+  init(){
+    $('#manual').onclick = () => {
+      if (!v('subj') && !v('purpose')) return toast('വിഷയമോ ഉദ്ദേശ്യമോ നൽകുക.');
+      const lg=v('lang'), sj=v('subj'), hasRef=!!v('ref'), n=lines(v('encl')).length, ps=[];
+      if (lg==='ml'){
+        ps.push((hasRef?'മേൽ സൂചന പ്രകാരം, ':'') + (sj?`"${sj}" സംബന്ധിച്ച `:'') + (n?`താഴെ പറയുന്ന ${n} രേഖകൾ`:'ആവശ്യമായ രേഖകൾ') + ' ഇതോടൊപ്പം ഉള്ളടക്കം ചെയ്ത് അയയ്ക്കുന്നു.');
+        if (v('purpose')) ps.push(v('purpose'));
+        ps.push('ഉള്ളടക്കം ചെയ്തിട്ടുള്ള രേഖകൾ പരിശോധിച്ച് തുടർനടപടികൾ സ്വീകരിക്കണമെന്ന് താഴ്മയായി അഭ്യർത്ഥിക്കുന്നു.');
+      } else {
+        ps.push((hasRef?'With reference to the above, ':'') + 'I am forwarding herewith ' + (n?`the following ${n} document${n>1?'s':''}`:'the necessary documents') + (sj?` relating to ${sj}`:'') + ' for your kind perusal.');
+        if (v('purpose')) ps.push(v('purpose'));
+        ps.push('Kindly acknowledge receipt of the same and take further necessary action.');
+      }
+      renderLetter(lg, ps);
+    };
+    $('#go').onclick = async () => {
+      if (!v('subj') && !v('purpose')) return toast('വിഷയമോ ഉദ്ദേശ്യമോ നൽകുക.');
+      const lg=v('lang'), lang = lg==='ml' ? 'Malayalam (formal Kerala government office style)' : 'formal Indian English';
+      const r = await ai('AI കത്ത് എഴുതുന്നു…',
+`Write the body of a formal covering letter in ${lang}.
+Facts (use only these, do not invent names, numbers or dates):
+- Sender: ${v('fName')}, ${v('fDesig')}, ${v('fOffice')}
+- Recipient: ${v('tDesig')}, ${v('tOffice')}
+- Subject: ${v('subj')}
+- Reference: ${v('ref') || 'none'}
+- Documents enclosed: ${lines(v('encl')).join('; ') || 'none listed'}
+- Purpose / notes: ${v('purpose') || 'forwarding the enclosed documents'}
+Write 2 to 3 short, polite paragraphs. Refer to the enclosures briefly without listing them one by one.
+Return ONLY JSON: {"paragraphs":["..."]}`);
+      if (!r || !Array.isArray(r.paragraphs)) return;
+      renderLetter(lg, r.paragraphs);
+    };
+  }
+},
+/* ---------- 2. Official letter ---------- */
+{ id:'official', c:'#c2433a', cd:'#721c16', title:'ഔദ്യോഗിക കത്ത്', fname:'official-letter',
+  sub:'സർക്കാർ ഓഫീസ് മാതൃകയിൽ ലെറ്റർഹെഡ്, നമ്പർ, സൂചന, പകർപ്പ് എന്നിവയോടുകൂടിയ കത്ത്. AI ഉപയോഗിച്ച് ഭാഷ മിനുക്കാനും കഴിയും.',
+  form(){ return `${LANG}
+    ${F('oHead','ഓഫീസിന്റെ പേര് (ലെറ്റർഹെഡ്)')}
+    ${F('oAddr','ഓഫീസ് വിലാസം / ഫോൺ')}
+    <div class="row2">${F('fileNo','ഫയൽ നമ്പർ')}${F('date','തീയതി','text','value="'+today()+'"')}</div>
+    <div class="row2">${F('fName','അയക്കുന്നയാൾ')}${F('fDesig','ഉദ്യോഗപ്പേര്')}</div>
+    ${F('toText','സ്വീകർത്താവ് (പേര്, ഉദ്യോഗം, വിലാസം)','textarea','style="min-height:70px"')}
+    ${F('subj','വിഷയം')}
+    ${F('refs','സൂചനകൾ (ഓരോന്നും ഓരോ വരിയിൽ)','textarea','style="min-height:60px"')}
+    ${F('body','കത്തിന്റെ ഉള്ളടക്കം','textarea','style="min-height:130px"')}
+    ${F('copyTo','പകർപ്പ് (ഓരോന്നും ഓരോ വരിയിൽ)','textarea','style="min-height:56px"')}
+    <div class="row2"><button class="btn green" id="go">കത്ത് തയ്യാറാക്കുക</button><button class="btn" data-ai id="polish">✦ AI ഭാഷ മിനുക്കുക</button></div>`; },
+  init(){
+    const build = paras => {
+      const lg=v('lang'), t=L[lg];
+      const refs=lines(v('refs')), cp=lines(v('copyTo'));
+      paper.innerHTML = `
+        ${v('oHead')?`<div class="lh"><h1>${esc(v('oHead'))}</h1>${v('oAddr')?`<p style="margin:4px 0 0">${esc(v('oAddr'))}</p>`:''}</div>`:''}
+        <p><strong>${t.no}</strong> ${esc(v('fileNo'))}<span style="float:right"><strong>${t.date}:</strong> ${esc(v('date'))}</span></p>
+        <p><strong>${t.from}</strong><br>${esc(v('fName'))}<br>${esc(v('fDesig'))}</p>
+        <p><strong>${t.to}</strong><br>${nl2br(v('toText'))}</p>
+        <p>${t.sir}</p>
+        <p class="indent"><strong>${t.sub}:</strong> ${esc(v('subj'))}</p>
+        ${refs.length?`<p class="indent"><strong>${t.ref}:</strong> ${refs.map((r,i)=>(refs.length>1?(i+1)+'. ':'')+esc(r)).join('<br>')}</p>`:''}
+        ${paras.map(p=>`<p class="body">${esc(p)}</p>`).join('')}
+        <p class="right">${t.yours}<br><br><br>${esc(v('fName'))}<br>${esc(v('fDesig'))}</p>
+        ${cp.length?`<p><strong>${t.copy}:</strong></p><ol>${cp.map(x=>`<li>${esc(x)}</li>`).join('')}</ol>`:''}`;
+    };
+    $('#go').onclick = () => { if(!v('body')) return toast('കത്തിന്റെ ഉള്ളടക്കം നൽകുക.'); build(v('body').split(/\n\s*\n|\n/).map(s=>s.trim()).filter(Boolean)); };
+    $('#polish').onclick = async () => {
+      if(!v('body')) return toast('മിനുക്കാനുള്ള ഉള്ളടക്കം നൽകുക.');
+      const lang = v('lang')==='ml' ? 'formal Malayalam used in Kerala government correspondence' : 'formal Indian government English';
+      const r = await ai('AI ഭാഷ മിനുക്കുന്നു…',
+`Rewrite this official letter body in ${lang}. Keep every fact, number and name exactly. Do not add a salutation, subject line or signature.
+Subject for context: ${v('subj')}
+Body:
+${v('body')}
+Return ONLY JSON: {"paragraphs":["..."]}`);
+      if (r && Array.isArray(r.paragraphs)){ $('#body').value = r.paragraphs.join('\n\n'); build(r.paragraphs); }
+    };
+  }
+},
+/* ---------- 3. Help file ---------- */
+{ id:'help', ai:true, c:'#2b9480', cd:'#135447', title:'ഹെൽപ്പ് ഫയൽ', fname:'help-file',
+  sub:'ഒരു സോഫ്റ്റ്‌വെയർ, ഓഫീസ് നടപടിക്രമം അല്ലെങ്കിൽ സേവനം ഉപയോഗിക്കാനുള്ള ഘട്ടം ഘട്ടമായ സഹായ രേഖ.',
+  form(){ return `${LANG}
+    ${F('title','തലക്കെട്ട്','text','placeholder="ഉദാ: SPARK-ൽ ലീവ് അപേക്ഷ നൽകുന്ന വിധം"')}
+    ${F('aud','ആർക്കുവേണ്ടി','text','placeholder="ഉദാ: ഓഫീസ് ജീവനക്കാർ"')}
+    ${F('notes','ഘട്ടങ്ങൾ / കുറിപ്പുകൾ','textarea','style="min-height:170px" placeholder="# ലോഗിൻ\nവെബ്സൈറ്റ് തുറക്കുക\nയൂസർ നെയിം നൽകുക\n# അപേക്ഷ\n…"')}
+    <p class="hint"># എന്നു തുടങ്ങുന്ന വരി ഭാഗത്തിന്റെ തലക്കെട്ടാകും. ബാക്കി വരികൾ ക്രമനമ്പറുള്ള ഘട്ടങ്ങളാകും.</p>
+    <div class="row2"><button class="btn green" id="go">നേരിട്ട് തയ്യാറാക്കുക</button><button class="btn" data-ai id="aigo">✦ AI ഉപയോഗിച്ച്</button></div>`; },
+  init(){
+    const render = d => {
+      paper.innerHTML = `<h1>${esc(d.title)}</h1>${d.intro?`<p>${esc(d.intro)}</p>`:''}
+        ${(d.sections||[]).map(s=>`<h2>${esc(s.heading)}</h2>${s.text?`<p>${esc(s.text)}</p>`:''}
+          ${(s.steps||[]).length?`<ol>${s.steps.map(x=>`<li>${esc(x)}</li>`).join('')}</ol>`:''}
+          ${(s.tips||[]).map(x=>`<div class="tip">💡 ${esc(x)}</div>`).join('')}`).join('')}
+        ${(d.faq||[]).length?`<h2>${v('lang')==='ml'?'പതിവ് ചോദ്യങ്ങൾ':'Frequently asked questions'}</h2>${d.faq.map(f=>`<h3>${esc(f.q)}</h3><p>${esc(f.a)}</p>`).join('')}`:''}`;
+    };
+    $('#go').onclick = () => {
+      if(!v('notes')) return toast('ഘട്ടങ്ങൾ നൽകുക.');
+      const secs=[]; let cur=null;
+      v('notes').split('\n').forEach(l=>{ l=l.trim(); if(!l) return; if(l.startsWith('#')){cur={heading:l.replace(/^#+\s*/,''),steps:[]};secs.push(cur);} else {if(!cur){cur={heading:v('lang')==='ml'?'ഘട്ടങ്ങൾ':'Steps',steps:[]};secs.push(cur);} cur.steps.push(l);} });
+      render({title:v('title')||(v('lang')==='ml'?'സഹായ രേഖ':'Help guide'), intro: v('aud')?(v('lang')==='ml'?`ഈ രേഖ ${v('aud')}ക്കുവേണ്ടി തയ്യാറാക്കിയതാണ്.`:`This guide is for ${v('aud')}.`):'', sections:secs});
+    };
+    $('#aigo').onclick = async () => {
+      if(!v('title') && !v('notes')) return toast('തലക്കെട്ടോ കുറിപ്പുകളോ നൽകുക.');
+      const lang = v('lang')==='ml' ? 'simple, clear Malayalam (keep software/menu names in English as they appear)' : 'simple, clear English';
+      const r = await ai('AI ഹെൽപ്പ് ഫയൽ എഴുതുന്നു…',
+`Create a well-organised help file in ${lang}.
+Title: ${v('title')}
+Audience: ${v('aud') || 'general users'}
+Author's notes/steps (base the guide on these; expand wording but do not invent features, URLs or numbers not implied):
+${v('notes') || '(none — write a sensible general guide for the title)'}
+Return ONLY JSON: {"title":"...","intro":"1-2 sentences","sections":[{"heading":"...","text":"optional short paragraph","steps":["..."],"tips":["optional"]}],"faq":[{"q":"...","a":"..."}]}
+Use 3-6 sections and 2-4 FAQs.`);
+      if (r && r.sections) render(r);
+    };
+  }
+},
+/* ---------- 4. PDF → Word (AI) ---------- */
+{ id:'pdf2doc', ai:true, c:'#4467c4', cd:'#1f3a82', title:'PDF → Word', fname:'converted',
+  sub:'PDF-ലെ എഴുത്ത് എടുത്ത് എഡിറ്റ് ചെയ്യാവുന്ന Word ഫയലാക്കുന്നു. AI ഘടന (തലക്കെട്ട്, ഖണ്ഡിക, പട്ടിക) ശരിയാക്കും; സ്കാൻ ചെയ്ത പേജുകളും വായിക്കും.',
+  form(){ return `${DROP('pf','PDF ഫയൽ ഇവിടെ ഇടുക','application/pdf,.pdf','അല്ലെങ്കിൽ ക്ലിക്ക് ചെയ്ത് തിരഞ്ഞെടുക്കുക')}
+    <p class="hint" id="pinfo">ഫയൽ തിരഞ്ഞെടുത്തിട്ടില്ല.</p>
+    <label class="chk"><input type="checkbox" id="aiStruct" data-ai> AI ഉപയോഗിച്ച് ഘടന ശരിയാക്കുക</label>
+    <label class="chk"><input type="checkbox" id="aiOcr" data-ai> എഴുത്തില്ലാത്ത (സ്കാൻ) പേജുകൾ AI വായിക്കട്ടെ</label>
+    <button class="btn full" id="go" disabled>Word ആക്കി മാറ്റുക</button>
+    <p class="hint">AI ബോക്സുകൾ ടിക്ക് ചെയ്യാതെയും മാറ്റാം — അപ്പോൾ എഴുത്ത് സ്വയം ഖണ്ഡികകളായി ക്രമീകരിക്കും. സ്കാൻ ചെയ്ത (ചിത്രമായുള്ള) പേജുകൾ വായിക്കാൻ മാത്രം AI നിർബന്ധമാണ്.</p>
+    <p class="hint">പഴയ ASCII മലയാളം ഫോണ്ടുകളിലുള്ള (ML-TT, Karthika അല്ലാത്തവ) PDF-കളിൽ എഴുത്ത് ശരിയായി ലഭിക്കണമെന്നില്ല. അങ്ങനെയെങ്കിൽ "സ്കാൻ" രീതി മികച്ചതാണ്.</p>`; },
+  init(){
+    let pdfFile=null;
+    wireDrop('pf', f => { pdfFile=f; CUR.file=f.name.replace(/\.pdf$/i,''); $('#pinfo').textContent='തിരഞ്ഞെടുത്തത്: '+f.name; $('#go').disabled=false; });
+    $('#go').onclick = async () => {
+      if(!pdfFile) return;
+      busy(true,'PDF വായിക്കുന്നു…');
+      let pdf;
+      try { pdf = await pdfjsLib.getDocument({data: await pdfFile.arrayBuffer(), isEvalSupported:false}).promise; }
+      catch(e){ busy(false); return toast('PDF തുറക്കാനായില്ല: '+(e.message||e)); }
+      const N = pdf.numPages, useAI0 = $('#aiStruct').checked, ocr0 = $('#aiOcr').checked;
+      if ((useAI0||ocr0) && !AI_ON()){ busy(false); askKey(); }
+      const useAI = useAI0 && AI_ON(), ocr = ocr0 && AI_ON() && IMG_OK;
+      const MAXAI = 40; let html='';
+      for (let i=1;i<=N;i++){
+        busy(true, `പേജ് ${i} / ${N} വായിക്കുന്നു…`);
+        const page = await pdf.getPage(i);
+        const tc = await page.getTextContent();
+        const ls=[]; let cur='', lastY=null;
+        for (const it of tc.items){ if(!('str' in it)) continue; const y=it.transform[5];
+          if(lastY!==null && Math.abs(y-lastY)>3 && cur.trim()){ ls.push(cur.trim()); cur=''; }
+          cur+=it.str; if(it.hasEOL){ if(cur.trim()) ls.push(cur.trim()); cur=''; } lastY=y; }
+        if(cur.trim()) ls.push(cur.trim());
+        const raw = ls.join('\n');
+        let blocks=null;
+        if (raw.replace(/\s/g,'').length < 25 && ocr && i<=MAXAI){
+          const vp = page.getViewport({scale:2}); const cv=document.createElement('canvas'); cv.width=vp.width; cv.height=vp.height;
+          await page.render({canvasContext:cv.getContext('2d'), viewport:vp}).promise;
+          const blob = await new Promise(r=>cv.toBlob(r,'image/jpeg',0.9));
+          blocks = await ai(`AI പേജ് ${i} വായിക്കുന്നു (സ്കാൻ)…`,
+`The image is page ${i} of a scanned document (may be Malayalam, English or both). Transcribe ALL text exactly in its original language and script. Do not translate or summarise.
+Return ONLY a JSON array of blocks in reading order: [{"t":"h1"|"h2"|"p"|"li","text":"..."} or {"t":"table","rows":[["cell",...],...]}]`, {images: blob});
+        } else if (useAI && raw.trim() && i<=MAXAI){
+          blocks = await ai(`AI പേജ് ${i} / ${N} ഘടന ശരിയാക്കുന്നു…`,
+`Below is raw text extracted line-by-line from page ${i} of a PDF. Rebuild its document structure: join lines broken mid-sentence into paragraphs, identify headings, list items and tables.
+Keep the wording EXACTLY as given (same language and script); do not translate, summarise, add or drop text.
+Return ONLY a JSON array of blocks: [{"t":"h1"|"h2"|"p"|"li","text":"..."} or {"t":"table","rows":[["cell",...],...]}]
+RAW TEXT:
+${raw.slice(0, 14000)}`);
+        }
+        html += i>1 ? `<div class="pg">പേജ് ${i}</div>` : '';
+        if (Array.isArray(blocks)) html += blocksToHtml(blocks);
+        else html += heuristic(ls);
+      }
+      busy(false);
+      paper.innerHTML = html || EMPTY('ഈ PDF-ൽ വായിക്കാവുന്ന എഴുത്ത് കണ്ടില്ല.');
+      if (N>MAXAI && (useAI||ocr)) toast(`ആദ്യ ${MAXAI} പേജുകളിൽ മാത്രമാണ് AI ഉപയോഗിച്ചത്.`);
+      else toast('പൂർത്തിയായി — Word ഡൗൺലോഡ് ചെയ്യാം.');
+    };
+  }
+},
+/* ---------- 5. Word → PDF ---------- */
+{ id:'doc2pdf', c:'#7250b0', cd:'#3e2572', title:'Word → PDF', fname:'document',
+  sub:'.docx ഫയൽ തുറന്ന് ആവശ്യമെങ്കിൽ തിരുത്തി PDF ആയി ഡൗൺലോഡ് ചെയ്യാം.',
+  form(){ return `${DROP('df','Word (.docx) ഫയൽ ഇവിടെ ഇടുക','.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document','പഴയ .doc ഫയലുകൾ Word-ൽ തുറന്ന് .docx ആയി സേവ് ചെയ്ത ശേഷം ഉപയോഗിക്കുക')}
+    <p class="hint" id="dinfo">ഫയൽ തിരഞ്ഞെടുത്തിട്ടില്ല.</p>
+    ${SEL('orient','പേജ് ദിശ',[['p','നീളത്തിൽ (Portrait)'],['l','വീതിയിൽ (Landscape)']])}
+    <p class="hint">ഫയൽ തുറന്നാൽ വലതുവശത്ത് കാണാം. തുടർന്ന് "PDF ഡൗൺലോഡ്" അമർത്തുക.</p>`; },
+  landscape(){ return v('orient')==='l'; },
+  init(){
+    wireDrop('df', async f => {
+      if(!/\.docx$/i.test(f.name)) return toast('.docx ഫയൽ മാത്രമേ സ്വീകരിക്കൂ.');
+      CUR.file=f.name.replace(/\.docx$/i,''); $('#dinfo').textContent='തുറന്നത്: '+f.name;
+      busy(true,'Word ഫയൽ വായിക്കുന്നു…');
+      try{
+        const r = await mammoth.convertToHtml({arrayBuffer: await f.arrayBuffer()}, {convertImage: mammoth.images.imgElement(img => img.read('base64').then(b=>({src:'data:'+img.contentType+';base64,'+b})))});
+        paper.innerHTML = r.value || EMPTY('ഫയലിൽ എഴുത്ത് കണ്ടില്ല.');
+        paper.querySelectorAll('img').forEach(im=>im.style.maxWidth='100%');
+        toast('തുറന്നു — PDF ഡൗൺലോഡ് ചെയ്യാം.');
+      }catch(e){ toast('ഫയൽ വായിക്കാനായില്ല: '+(e.message||e)); }
+      busy(false);
+    });
+  }
+},
+/* ---------- 6. Excel → PDF (AI) ---------- */
+{ id:'excel', ai:true, c:'#2f9442', cd:'#175522', title:'Excel → PDF', fname:'sheet',
+  sub:'Excel അല്ലെങ്കിൽ CSV പട്ടിക വൃത്തിയുള്ള PDF ആക്കുന്നു. AI തലക്കെട്ടും ചുരുക്കവും ചേർക്കും.',
+  form(){ return `${DROP('xf','Excel / CSV ഫയൽ ഇവിടെ ഇടുക','.xlsx,.xls,.csv,.ods','.xlsx, .xls, .csv, .ods')}
+    <p class="hint" id="xinfo">ഫയൽ തിരഞ്ഞെടുത്തിട്ടില്ല.</p>
+    ${SEL('sheet','ഷീറ്റ്',[['','—']])}
+    <div class="row2">${SEL('orient','പേജ് ദിശ',[['a','സ്വയം'],['p','Portrait'],['l','Landscape']])}${SEL('lang','AI ഭാഷ',[['ml','മലയാളം'],['en','English']])}</div>
+    <label class="chk"><input type="checkbox" id="hdr" checked> ആദ്യ വരി തലക്കെട്ട് വരി</label>
+    ${F('xTitle','റിപ്പോർട്ട് തലക്കെട്ട്')}
+    ${F('xNote','കുറിപ്പ് (ഉണ്ടെങ്കിൽ)','textarea','style="min-height:60px"')}
+    <label class="chk"><input type="checkbox" id="xStats" checked> വരികളുടെ എണ്ണവും സംഖ്യാ കോളങ്ങളുടെ ആകെത്തുകയും ചേർക്കുക</label>
+    <div class="row2"><button class="btn green" id="xman">നേരിട്ട് ചേർക്കുക</button><button class="btn" data-ai id="aigo">✦ AI ഉപയോഗിച്ച്</button></div>
+    <p class="hint">തലക്കെട്ട് ഒന്നും വേണ്ടെങ്കിൽ നേരെ "PDF ഡൗൺലോഡ്" അമർത്താം.</p>`; },
+  landscape(){ const o=v('orient'); return o==='l' || (o==='a' && (this.cols||0)>6); },
+  init(){
+    let wb=null; const self=this;
+    const show = () => {
+      if(!wb) return;
+      const ws = wb.Sheets[v('sheet')];
+      let rows = XLSX.utils.sheet_to_json(ws,{header:1, raw:false, defval:''});
+      rows = rows.filter(r=>r.some(c=>String(c).trim()!==''));
+      const nc = Math.max(0,...rows.map(r=>{let k=r.length;while(k>0&&String(r[k-1]).trim()==='')k--;return k;}));
+      rows = rows.map(r=>r.slice(0,nc)); self.cols=nc; self.rows=rows;
+      const hd = $('#hdr').checked && rows.length;
+      const head = hd ? `<thead><tr>${rows[0].map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead>` : '';
+      const body = (hd?rows.slice(1):rows).map(r=>`<tr>${Array.from({length:nc},(_,i)=>`<td>${esc(r[i]??'')}</td>`).join('')}</tr>`).join('');
+      const keep = paper.querySelector('.xsum');
+      paper.innerHTML = (keep?keep.outerHTML:'') + (rows.length?`<table>${head}<tbody>${body}</tbody></table>`:EMPTY('ഈ ഷീറ്റിൽ ഡാറ്റയില്ല.'));
+    };
+    wireDrop('xf', async f => {
+      busy(true,'ഫയൽ വായിക്കുന്നു…');
+      try{
+        wb = XLSX.read(await f.arrayBuffer(), {type:'array', cellDates:true});
+        CUR.file=f.name.replace(/\.[^.]+$/,''); $('#xinfo').textContent='തുറന്നത്: '+f.name;
+        $('#sheet').innerHTML = wb.SheetNames.map(n=>`<option>${esc(n)}</option>`).join('');
+        paper.innerHTML=''; show();
+      }catch(e){ toast('ഫയൽ വായിക്കാനായില്ല: '+(e.message||e)); }
+      busy(false);
+    });
+    $('#sheet').onchange = () => { paper.innerHTML=''; show(); };
+    $('#hdr').onchange = show;
+    $('#xman').onclick = () => {
+      if(!self.rows || !self.rows.length) return toast('ആദ്യം ഒരു ഫയൽ തിരഞ്ഞെടുക്കുക.');
+      const hd = $('#hdr').checked, data = hd ? self.rows.slice(1) : self.rows, stats=[];
+      if ($('#xStats').checked){
+        stats.push(`ആകെ വരികൾ: ${data.length}`, `ആകെ കോളങ്ങൾ: ${self.cols}`);
+        for (let c=0;c<self.cols;c++){
+          const vals = data.map(r=>String(r[c]??'').trim()).filter(Boolean);
+          if (!vals.length) continue;
+          const nums = vals.map(x=>Number(x.replace(/[,₹\s]/g,''))).filter(n=>!isNaN(n));
+          if (nums.length >= vals.length*0.8 && nums.length>1){
+            const name = hd ? (self.rows[0][c] || ('കോളം '+(c+1))) : ('കോളം '+(c+1));
+            const sum = nums.reduce((a,b)=>a+b,0);
+            stats.push(`${name} — ആകെ: ${sum.toLocaleString('en-IN',{maximumFractionDigits:2})}`);
+          }
+        }
+      }
+      paper.querySelector('.xsum')?.remove();
+      if (!v('xTitle') && !v('xNote') && !stats.length) return;
+      paper.insertAdjacentHTML('afterbegin', `<div class="xsum">${v('xTitle')?`<h1>${esc(v('xTitle'))}</h1>`:''}${v('xNote')?`<p>${esc(v('xNote'))}</p>`:''}${stats.length?`<ul>${stats.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}</div>`);
+    };
+    $('#aigo').onclick = async () => {
+      if(!self.rows || !self.rows.length) return toast('ആദ്യം ഒരു ഫയൽ തിരഞ്ഞെടുക്കുക.');
+      const csv = self.rows.slice(0,80).map(r=>r.map(c=>String(c).replace(/[\n,]/g,' ')).join(',')).join('\n').slice(0,12000);
+      const lang = v('lang')==='ml' ? 'Malayalam' : 'English';
+      const r = await ai('AI പട്ടിക വിശകലനം ചെയ്യുന്നു…',
+`Here is a table (CSV, first ${Math.min(80,self.rows.length)} of ${self.rows.length} rows) from a spreadsheet sheet named "${v('sheet')}".
+Write in ${lang}: a short report title, a 2-3 sentence summary of what the table contains, and up to 4 key observations based only on the visible data (totals or counts only if you can compute them exactly from the rows shown).
+Return ONLY JSON: {"title":"...","summary":"...","points":["..."]}
+CSV:
+${csv}`);
+      if(!r) return;
+      paper.querySelector('.xsum')?.remove();
+      paper.insertAdjacentHTML('afterbegin', `<div class="xsum"><h1>${esc(r.title||'')}</h1><p>${esc(r.summary||'')}</p>${(r.points||[]).length?`<ul>${r.points.map(p=>`<li>${esc(p)}</li>`).join('')}</ul>`:''}</div>`);
+    };
+  }
+}
+];
+
+/* covering letter renderer */
+function renderLetter(lg, paras){
+  const t=L[lg], encl=lines(v('encl'));
+  paper.innerHTML = `
+    <p><strong>${t.from}</strong><br>${esc(v('fName'))}<br>${esc(v('fDesig'))}<br>${nl2br(v('fOffice'))}</p>
+    <p><strong>${t.to}</strong><br>${esc(v('tDesig'))}<br>${esc(v('tOffice'))}</p>
+    <p class="right">${t.place}: ${esc(v('place'))}<br>${t.date}: ${esc(v('date'))}</p>
+    <p>${t.sir}</p>
+    <p class="indent"><strong>${t.sub}:</strong> ${esc(v('subj'))}</p>
+    ${v('ref')?`<p class="indent"><strong>${t.ref}:</strong> ${esc(v('ref'))}</p>`:''}
+    ${paras.map(p=>`<p class="body">${esc(p)}</p>`).join('')}
+    <p class="right">${t.yours}<br><br><br>${esc(v('fName'))}<br>${esc(v('fDesig'))}</p>
+    ${encl.length?`<p><strong>${t.enc}:</strong></p><ol>${encl.map(e=>`<li>${esc(e)}</li>`).join('')}</ol>`:''}`;
+}
+
+/* pdf helpers */
+function blocksToHtml(bs){
+  let h='', inList=false;
+  bs.forEach(b=>{
+    if(!b) return;
+    if(b.t!=='li' && inList){ h+='</ul>'; inList=false; }
+    if(b.t==='li'){ if(!inList){h+='<ul>';inList=true;} h+=`<li>${esc(b.text)}</li>`; }
+    else if(b.t==='h1') h+=`<h1>${esc(b.text)}</h1>`;
+    else if(b.t==='h2') h+=`<h2>${esc(b.text)}</h2>`;
+    else if(b.t==='table' && Array.isArray(b.rows)) h+=`<table>${b.rows.map((r,i)=>`<tr>${(r||[]).map(c=>i===0?`<th>${esc(c)}</th>`:`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table>`;
+    else h+=`<p>${esc(b.text)}</p>`;
+  });
+  if(inList) h+='</ul>';
+  return h;
+}
+function heuristic(ls){
+  if(!ls.length) return '';
+  const mx = Math.max(...ls.map(l=>l.length));
+  const out=[]; let cur='';
+  ls.forEach(l=>{ cur = cur ? cur+' '+l : l; if(l.length < mx*0.6 || /[.:।?!]$/.test(l)){ out.push(cur); cur=''; } });
+  if(cur) out.push(cur);
+  return out.map(p=>`<p>${esc(p)}</p>`).join('');
+}
+
+/* ================= navigation ================= */
+const grid = $('#grid');
+grid.innerHTML = TOOLS.map(t=>`
+  <button class="tile" data-id="${t.id}" style="--c:${t.c};--cd:${t.cd};--i:${(TOOLS.indexOf(t)*0.09).toFixed(2)}s">
+    ${t.ai?'<span class="ai-pill">AI</span>':''}
+    <div class="ico">${ICONS[t.id]}</div>
+    <h2>${t.title}</h2>
+    <p>${t.sub.split('. ')[0].replace(/[.]$/,'')}.</p>
+  </button>`).join('');
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (reduce) document.querySelector('.hero')?.pauseAnimations?.();
+(() => {
+  const shapes = [
+    c=>`<svg viewBox="0 0 40 30"><rect x="1" y="1" width="38" height="28" rx="5" fill="${c}"/><path d="M2 3 20 17 38 3" fill="none" stroke="#fff" stroke-width="2.5"/></svg>`,
+    c=>`<svg viewBox="0 0 30 38"><path d="M2 2h18l8 8v26H2z" fill="${c}"/><path d="M7 16h15M7 22h15M7 28h10" stroke="#fff" stroke-width="2.5"/></svg>`,
+    c=>`<svg viewBox="0 0 30 30"><path d="M15 1l4 10 10 4-10 4-4 10-4-10-10-4 10-4z" fill="${c}"/></svg>`,
+    c=>`<svg viewBox="0 0 40 30"><path d="M2 14 38 2 22 28 17 18z" fill="${c}"/></svg>`
+  ];
+  const cols = ['#ff6fae','#ffb840','#39c9a0','#5a8cff','#b56cff','#ff7a59'];
+  const sky = document.getElementById('sky'); if (reduce) return;
+  for (let i=0;i<16;i++){
+    const d = document.createElement('div'); d.className='flyer';
+    d.style.left = (Math.random()*100)+'%';
+    d.style.setProperty('--w', (20+Math.random()*26)+'px');
+    d.style.setProperty('--d', (16+Math.random()*16)+'s');
+    d.style.setProperty('--dl', (-Math.random()*30)+'s');
+    d.style.setProperty('--sx', ((Math.random()-.5)*160)+'px');
+    d.innerHTML = shapes[i%shapes.length](cols[i%cols.length]);
+    sky.appendChild(d);
+  }
+})();
+grid.querySelectorAll('.tile').forEach(el=>{
+  el.onclick = () => openTool(el.dataset.id);
+  if(!reduce){
+    el.addEventListener('pointermove', e=>{ const r=el.getBoundingClientRect(); const x=(e.clientX-r.left)/r.width-.5, y=(e.clientY-r.top)/r.height-.5;
+      el.style.setProperty('--ry', (x*14).toFixed(2)+'deg'); el.style.setProperty('--rx', (6 - y*14).toFixed(2)+'deg'); });
+    el.addEventListener('pointerleave', ()=>{ el.style.setProperty('--ry','0deg'); el.style.setProperty('--rx','6deg'); });
+  }
+});
+
+function openTool(id){
+  CUR = TOOLS.find(t=>t.id===id); CUR.file=null;
+  $('#wsTitle').textContent = CUR.title;
+  $('#wsSub').textContent = CUR.sub;
+  $('#form').innerHTML = CUR.form();
+  paper.innerHTML = EMPTY(CUR.ai||id==='official' ? 'വിവരങ്ങൾ നൽകി ബട്ടൺ അമർത്തുക. രേഖ ഇവിടെ തയ്യാറാകും.' : 'ഫയൽ തിരഞ്ഞെടുക്കുക. ഉള്ളടക്കം ഇവിടെ കാണാം.');
+  CUR.init();
+  $('#form').querySelectorAll('[data-ai]').forEach(b => { b.disabled = false; });
+  if (id==='pdf2doc' && SAMPLE && !IMG_OK){ const o=$('#aiOcr'); o.checked=false; o.disabled=true; }
+  $('#home').classList.add('hide'); $('#ws').classList.add('show');
+  window.scrollTo({top:0, behavior: reduce?'auto':'smooth'});
+}
+$('#backBtn').onclick = () => { $('#ws').classList.remove('show'); $('#home').classList.remove('hide'); CUR=null; };
+
+if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+</script>
+</body>
+</html>
