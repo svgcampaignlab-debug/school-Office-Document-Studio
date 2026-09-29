@@ -128,6 +128,11 @@ button,input,select,textarea{font:inherit}
   background:linear-gradient(180deg,rgba(255,255,255,.35),rgba(255,255,255,0) 42%);mix-blend-mode:soft-light}
 .tile::after{content:"";position:absolute;inset:6px;border-radius:15px;border:1px solid rgba(255,255,255,.28);pointer-events:none}
 .tile:hover{--lift:-6px}
+.tile.wide{grid-column:1/-1;display:flex;align-items:center;gap:22px;min-height:132px;padding:22px 26px}
+.tile.wide .ico{margin:0;flex:none;width:72px;height:72px;border-radius:20px}
+.tile.wide .ico svg{width:40px;height:40px}
+.tile.wide h2{font-size:27px}
+@media (max-width:520px){.tile.wide{flex-direction:column;align-items:flex-start;gap:12px}}
 .tile:active{--lift:5px;box-shadow:0 1px 0 var(--cd),0 2px 0 var(--cd),0 3px 0 var(--cd),0 8px 12px rgba(0,0,0,.4)}
 .tile:focus-visible{outline:3px solid var(--brass);outline-offset:6px}
 .tile .ico{width:58px;height:58px;border-radius:16px;display:grid;place-items:center;margin-bottom:14px;animation:bob 3.4s ease-in-out infinite;animation-delay:var(--i,0s);
@@ -201,6 +206,21 @@ button,input,select,textarea{font:inherit}
 .paper th,.paper td{border:1px solid #9aa4ad;padding:6px 8px;text-align:left;vertical-align:top}
 .paper th{background:#e8edf1}
 .paper .right{text-align:right}
+.paper .red{color:#d0021b}
+.paper .cert{font-family:"Noto Sans Malayalam","Manjari",Arial,sans-serif;font-size:15px;line-height:1.8}
+.paper .cert h1{font-family:"Noto Sans Malayalam",Arial,sans-serif;font-weight:700;font-size:25px;color:#2c3e50;margin:10px 0 6px;letter-spacing:.2px}
+.paper .cert .csub{font-size:13.5px;margin:0 0 8px}
+.paper hr.thick{border:0;border-top:4px solid #2c3e50;margin:6px 0 22px}
+.paper .cert .chead{margin:0 0 10px;color:#333}
+.paper .cert .cbody{text-align:justify;line-height:2.3;margin:26px 0 30px}
+.paper .cert ol{padding-left:24px;margin:14px 0}
+.paper .cert ol li{margin:0 0 10px}
+.paper .cert table.ctab th,.paper .cert table.ctab td{text-align:center;border:1px solid #222;padding:8px;font-weight:700}
+.paper .cert table.ctab{margin:16px 0 22px}
+.paper table.nb,.paper table.nb td{border:0!important;background:none;padding:4px 0}
+.paper .cert .csig{margin-top:44px;font-family:inherit;font-size:15px;line-height:2}
+.paper .cert .cseal{margin:34px 0}
+.paper .cert .cbottom{margin-top:30px}
 .paper .center{text-align:center}
 .paper .indent{padding-left:40px}
 .paper .body{text-indent:40px;text-align:justify}
@@ -449,11 +469,11 @@ async function toDocx(root, landscape){
   const runs = (node, st={}) => {
     const r = [];
     node.childNodes.forEach(n => {
-      if (n.nodeType===3){ const t=n.textContent.replace(/\s+/g,' '); if(t) r.push(new D.TextRun({text:t, bold:st.b, italics:st.i, underline:st.u?{}:undefined, size:st.size, font:FONT})); }
+      if (n.nodeType===3){ const t=n.textContent.replace(/\s+/g,' '); if(t) r.push(new D.TextRun({text:t, bold:st.b, italics:st.i, underline:st.u?{}:undefined, size:st.size, color:st.color, font:FONT})); }
       else if (n.nodeType===1){
         const tg=n.tagName;
         if (tg==='BR') r.push(new D.TextRun({text:'', break:1}));
-        else r.push(...runs(n, {...st, b: st.b||/^(B|STRONG|TH)$/.test(tg), i: st.i||/^(I|EM)$/.test(tg), u: st.u||tg==='U'}));
+        else r.push(...runs(n, {...st, b: st.b||/^(B|STRONG|TH)$/.test(tg), i: st.i||/^(I|EM)$/.test(tg), u: st.u||tg==='U', color: n.classList.contains('red') ? 'D0021B' : st.color}));
       }
     });
     return r;
@@ -462,7 +482,7 @@ async function toDocx(root, landscape){
   const sizes = {H1:36, H2:30, H3:26, H4:24};
   const para = (el, extra={}) => {
     const sz = sizes[el.tagName];
-    const rs = runs(el, {b: !!sz, size: sz});
+    const rs = runs(el, {b: !!sz, size: sz, color: el.classList && el.classList.contains('red') ? 'D0021B' : undefined});
     return new D.Paragraph({children: rs.length?rs:[new D.TextRun('')], alignment: align(el), spacing:{after:140, line:300},
       indent: el.classList && el.classList.contains('indent') ? {left:720} : (el.classList && el.classList.contains('body') ? {firstLine:720} : undefined), ...extra});
   };
@@ -476,7 +496,7 @@ async function toDocx(root, landscape){
       if (n.classList.contains('pg')){ out.push(new D.Paragraph({children:[], pageBreakBefore:true})); return; }
       if (/^H\d$|^P$/.test(tg)) out.push(para(n));
       else if (tg==='UL' || tg==='OL'){
-        let k=0;
+        let k=(parseInt(n.getAttribute('start'))||1)-1;
         n.querySelectorAll(':scope > li').forEach(li => {
           k++;
           const pre = tg==='OL' ? [new D.TextRun({text:k+'. ', font:FONT})] : [new D.TextRun({text:'•  ', font:FONT})];
@@ -485,12 +505,12 @@ async function toDocx(root, landscape){
       }
       else if (tg==='TABLE'){
         const rows = [...n.querySelectorAll('tr')].map(tr => new D.TableRow({children:
-          [...tr.children].map(td => new D.TableCell({children:[new D.Paragraph({children: runs(td, {b: td.tagName==='TH', size:18})})],
+          [...tr.children].map(td => new D.TableCell({children:[new D.Paragraph({alignment: align(td), children: runs(td, {b: td.tagName==='TH', size: n.classList.contains('nb') ? undefined : 18})})],
             shading: td.tagName==='TH' ? {fill:'E8EDF1'} : undefined}))}));
-        if (rows.length) out.push(new D.Table({rows, width:{size:100, type:D.WidthType.PERCENTAGE}}));
+        if (rows.length) out.push(new D.Table({rows, width:{size:100, type:D.WidthType.PERCENTAGE}, borders: n.classList.contains('nb') ? D.TableBorders.NONE : undefined}));
         out.push(new D.Paragraph({children:[]}));
       }
-      else if (tg==='HR') out.push(new D.Paragraph({children:[], border:{bottom:{style:D.BorderStyle.SINGLE, size:6, color:'1C2630'}}}));
+      else if (tg==='HR') out.push(new D.Paragraph({children:[], spacing:{after:200}, border:{bottom:{style:D.BorderStyle.SINGLE, size: n.classList.contains('thick') ? 24 : 6, color:'2C3E50'}}}));
       else if (BLOCK.test(tg)){
         const hasBlock = [...n.children].some(c => BLOCK.test(c.tagName) || c.tagName==='LI');
         if (hasBlock) walk(n);
@@ -534,10 +554,158 @@ const ICONS = {
   help:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4z"/><path d="M20 4h-4a2 2 0 0 0-2 2"/><path d="M17 11v.01M17 8a1.5 1.5 0 0 1 1 2.6"/></svg>',
   pdf2doc:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h7l3 3v6H4z"/><path d="M12 14h8v7h-8z"/><path d="M7 15v3h3"/><path d="m7 18 3-3"/></svg>',
   doc2pdf:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h8v9H4z"/><path d="M6 6h4M6 9h3"/><path d="M13 12h7v9h-7z"/><path d="M15 15h3"/><path d="m8 15 3 3-3 3"/></svg>',
+  decl:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14v18H5z"/><path d="M8 7h8M8 10.5h8M8 14h4"/><circle cx="15.5" cy="16.5" r="2.2"/><path d="m14.5 18.5-.8 3 1.8-1 1.8 1-.8-3"/></svg>',
   excel:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>'
 };
 
 const TOOLS = [
+/* ---------- 0. Declaration / Certificate ---------- */
+{ id:'decl', ai:true, wide:true, c:'#d9468f', cd:'#7d1a4d', title:'ഡിക്ലറേഷൻ / സർട്ടിഫിക്കറ്റ്', fname:'certificate',
+  sub:'ശമ്പള ബിൽ ഡിക്ലറേഷൻ, സാക്ഷ്യപത്രം, സത്യവാങ്മൂലം തുടങ്ങിയവ തയ്യാറാക്കാം — മാതൃകകൾ തിരഞ്ഞെടുക്കാം, സ്വന്തം മാതൃക സേവ് ചെയ്യാം. AI ഇല്ലാതെയും ഉപയോഗിക്കാം.',
+  form(){
+    const ta = (id,l,h=64,ph='') => F(id,l,'textarea',`style="min-height:${h}px"${ph?` placeholder="${ph}"`:''}`);
+    return `${SEL('dTpl','മാതൃക തിരഞ്ഞെടുക്കുക',[])}
+    <div class="fld" style="border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:12px;background:rgba(0,0,0,.12)">
+      <label style="margin-bottom:8px">സ്ഥിര വിവരങ്ങൾ (ഈ ബ്രൗസറിൽ ഓർത്തുവെക്കും)</label>
+      <div class="form">
+        ${F('qOffice','ഓഫീസ് / സ്കൂളിന്റെ പേര്')}
+        <div class="row2">${F('qCode','ട്രഷറി / DDO കോഡ്')}${F('qDistrict','ജില്ല')}</div>
+        <div class="row2">${F('qPlace','സ്ഥലം')}${F('qMonth','ശമ്പള മാസം')}</div>
+        <button class="btn ghost" id="qApply">ഈ വിവരങ്ങൾ മാതൃകയിൽ ചേർക്കുക</button>
+      </div>
+    </div>
+    ${F('dTitle','തലക്കെട്ട്')}
+    <label class="chk"><input type="checkbox" id="dU"> തലക്കെട്ടിന് അടിവര</label>
+    ${F('dSub','ഉപതലക്കെട്ട് (സർക്കുലർ നമ്പർ മുതലായവ — ചുവപ്പിൽ)')}
+    ${ta('dHead','മുകളിലെ വിവരങ്ങൾ (ഓരോ വരിയും ഓരോന്ന്)',56)}
+    ${ta('dBody','പ്രധാന ഖണ്ഡിക (ഉണ്ടെങ്കിൽ)',90)}
+    ${ta('dPoints','ക്രമനമ്പറുള്ള പോയിന്റുകൾ (ഓരോ വരിയും ഓരോ പോയിന്റ്)',150)}
+    <p class="hint">പട്ടിക വരേണ്ട സ്ഥലത്ത് ഒരു വരിയിൽ {table} എന്ന് എഴുതുക. **വാക്ക്** = കനത്ത അക്ഷരം, [[വാക്ക്]] = ചുവപ്പ്.</p>
+    ${ta('dTable','പട്ടിക (കോളങ്ങൾ | കൊണ്ട് വേർതിരിക്കുക, ആദ്യ വരി തലക്കെട്ട്)',80)}
+    <div class="row2">${ta('dSigL','ഒപ്പ് — ഇടതുവശം',56)}${ta('dSigR','ഒപ്പ് — വലതുവശം',56)}</div>
+    <div class="row2">${F('dSeal','സീൽ (നടുവിൽ)')}${ta('dBottom','ഏറ്റവും താഴെ ഇടത് (സ്ഥലം/തീയതി)',56)}</div>
+    <div class="row2"><button class="btn green" id="dGo">സർട്ടിഫിക്കറ്റ് തയ്യാറാക്കുക</button><button class="btn ghost" id="dSave">എന്റെ മാതൃകയായി സേവ്</button></div>
+    <button class="btn red" id="dDel" style="display:none">ഈ സേവ് ചെയ്ത മാതൃക നീക്കുക</button>
+    ${ta('dAiDesc','AI: ഏതുതരം ഡിക്ലറേഷൻ വേണം എന്ന് എഴുതുക (ഇഷ്ടമുണ്ടെങ്കിൽ മാത്രം)',64,'ഉദാ: സ്ഥലംമാറ്റം ലഭിച്ച ജീവനക്കാരന് ബാധ്യതയില്ലെന്ന സർട്ടിഫിക്കറ്റ്')}
+    <button class="btn full" data-ai id="dAi">✦ AI ഉപയോഗിച്ച് പോയിന്റുകൾ തയ്യാറാക്കുക</button>`;
+  },
+  init(){
+    const now = new Date(), MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const pm = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    const DATE = '..../' + String(now.getMonth()+1).padStart(2,'0') + '/' + now.getFullYear();
+    const T = {
+      salary:{name:'ശമ്പളം — Certificate for Previous Months Claim', title:'CERTIFICATE FOR PREVIOUS MONTHS CLAIM', u:false,
+        sub:'(Circular No 22/2021/ dt 08/12/2021, Directorate of Treasury)',
+        head:'NAME OF OFFICE: {OFFICE}\nTREASURY CODE: [[{CODE}]]', body:'',
+        points:"Certified that Pay & allowances for the month of {MONTH} have been disbursed to the proper persons and statement of credit to the respective beneficiary's ETSB accounts is filed in the office.\nCertified that the necessary Monthly Statutory deductions like GPF, GIS, SLI, MEDISEP, etc., are deducted from the incumbent salary Bills.\nCertified that the GIS Subscription of the incumbents of this office are correct as per the GIS slab of District Insurance Office, **{DISTRICT}**.\nCertified that the SLI Policies of the employees mentioned below have matured.\n{table}\nCertified that the DDO Code of this Office is **{CODE}**",
+        table:'SI NO | PEN | NAME | DESIGNATION | DATE OF RETIREMENT\n1 |  |  |  | ',
+        sigL:'', sigR:'**Signature of DDO**', seal:'[[Office Seal]]', bottom:'{PLACE}\n{DATE}'},
+      ddo:{name:'ശമ്പള ബിൽ — DDO Certificate', title:'DDO CERTIFICATE — SALARY BILL', u:false, sub:'',
+        head:'NAME OF OFFICE: {OFFICE}\nDDO CODE: {CODE}\nMONTH: {MONTH}', body:'',
+        points:'Certified that the pay and allowances claimed in this bill for the month of {MONTH} have not been drawn previously.\nCertified that all the employees whose pay is drawn in this bill were on duty or on sanctioned leave during the period.\nCertified that all recoveries and deductions due from the employees have been made in this bill.\nCertified that the employees concerned are not in receipt of any other pay or allowance for the same period.\nCertified that the particulars furnished above are true and correct.',
+        table:'', sigL:'', sigR:'**Signature of DDO**\nName:\nDesignation:', seal:'Office Seal', bottom:'{PLACE}\n{DATE}'},
+      principal:{name:'സ്കൂൾ പ്രിൻസിപ്പലിന്റെ സാക്ഷ്യപത്രം', title:'സ്കൂൾ പ്രിൻസിപ്പലിന്റെ സാക്ഷ്യപത്രം', u:true, sub:'', head:'',
+        body:'{OFFICE} സ്കൂളിലെ ________ ക്ലാസിൽ പഠിക്കുന്ന കുമാരി/കുമാരൻ ______________________ **‘കതിര്’ കാർഷിക ക്ലബ്** പദ്ധതിയുടെ സംസ്ഥാനതല ലോഗോ ഡിസൈൻ മത്സരത്തിനായി സമർപ്പിക്കുന്ന ഡിസൈൻ പ്രസ്തുത വിദ്യാർത്ഥി സ്വന്തമായി തയ്യാറാക്കിയതാണെന്നും, മേൽപ്പറഞ്ഞ വിവരങ്ങൾ ശരിയാണെന്നും ഇതിനാൽ സാക്ഷ്യപ്പെടുത്തുന്നു.',
+        points:'', table:'', sigL:'സ്ഥലം: {PLACE}\nതീയതി:', sigR:'പ്രിൻസിപ്പലിന്റെ ഒപ്പ്\nപേര്', seal:'സ്കൂൾ സീൽ', bottom:''},
+      selfml:{name:'സ്വയം സാക്ഷ്യപത്രം (മലയാളം)', title:'സ്വയം സാക്ഷ്യപത്രം', u:true, sub:'', head:'',
+        body:'{OFFICE}-ൽ ________________ ആയി ജോലി ചെയ്യുന്ന ________________ ആയ ഞാൻ, മുകളിൽ / ഇതോടൊപ്പം നൽകിയിട്ടുള്ള വിവരങ്ങൾ എന്റെ അറിവിലും വിശ്വാസത്തിലും പൂർണ്ണമായും സത്യമാണെന്ന് ഇതിനാൽ സാക്ഷ്യപ്പെടുത്തുന്നു.',
+        points:'', table:'', sigL:'സ്ഥലം: {PLACE}\nതീയതി:', sigR:'ഒപ്പ്\nപേര്\nഉദ്യോഗപ്പേര്', seal:'', bottom:''},
+      decen:{name:'Self Declaration (English)', title:'DECLARATION', u:true, sub:'', head:'',
+        body:'I, ______________________, ______________ (designation), {OFFICE}, do hereby declare that the particulars furnished above are true and correct to the best of my knowledge and belief.',
+        points:'', table:'', sigL:'Place: {PLACE}\nDate:', sigR:'Signature\nName\nDesignation', seal:'', bottom:''},
+      blank:{name:'ശൂന്യ മാതൃക (സ്വന്തമായി)', title:'CERTIFICATE', u:false, sub:'', head:'', body:'', points:'Certified that ', table:'', sigL:'', sigR:'Signature', seal:'Office Seal', bottom:'{PLACE}\n{DATE}'}
+    };
+    const LS = (k, val) => { try { if (val===undefined) return JSON.parse(localStorage.getItem(k)||'null'); localStorage.setItem(k, JSON.stringify(val)); } catch(e){ return null; } };
+    let saved = LS('ods_decl_saved') || {};
+    const Q = LS('ods_decl_quick') || {};
+    ['qOffice','qCode','qDistrict','qPlace','qMonth'].forEach(k => { $('#'+k).value = Q[k] || (k==='qMonth' ? MN[pm.getMonth()]+' '+pm.getFullYear() : ''); });
+    const saveQ = () => LS('ods_decl_quick', Object.fromEntries(['qOffice','qCode','qDistrict','qPlace','qMonth'].map(k=>[k, v(k)])));
+    const tplSel = $('#dTpl');
+    const fillSel = (sel) => {
+      tplSel.innerHTML = Object.entries(T).map(([k,t])=>`<option value="${k}">${esc(t.name)}</option>`).join('') +
+        (Object.keys(saved).length ? `<optgroup label="എന്റെ മാതൃകകൾ">${Object.keys(saved).map(n=>`<option value="saved:${esc(n)}">★ ${esc(n)}</option>`).join('')}</optgroup>` : '');
+      if (sel) tplSel.value = sel;
+    };
+    const blankIf = x => x ? x : '________';
+    const sub = s => String(s||'').replace(/\{OFFICE\}/g, blankIf(v('qOffice'))).replace(/\{CODE\}/g, blankIf(v('qCode')))
+      .replace(/\{DISTRICT\}/g, blankIf(v('qDistrict'))).replace(/\{PLACE\}/g, v('qPlace')).replace(/\{MONTH\}/g, blankIf(v('qMonth'))).replace(/\{DATE\}/g, DATE);
+    const FIELDS = {dTitle:'title', dSub:'sub', dHead:'head', dBody:'body', dPoints:'points', dTable:'table', dSigL:'sigL', dSigR:'sigR', dSeal:'seal', dBottom:'bottom'};
+    const load = () => {
+      const key = tplSel.value, t = key.startsWith('saved:') ? saved[key.slice(6)] : T[key];
+      if (!t) return;
+      const raw = key.startsWith('saved:');
+      Object.entries(FIELDS).forEach(([id,f]) => $('#'+id).value = raw ? (t[f]||'') : sub(t[f]));
+      $('#dU').checked = !!t.u;
+      $('#dDel').style.display = raw ? '' : 'none';
+      render();
+    };
+    const fmt = s => esc(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\[\[(.+?)\]\]/g,'<span class="red">$1</span>');
+    const multi = s => lines(s).map(fmt).join('<br>');
+    const table = () => {
+      const rows = String(v('dTable')).split('\n').filter(l=>l.trim()).map(l=>l.split('|').map(c=>c.trim()));
+      if (!rows.length) return '';
+      const n = Math.max(...rows.map(r=>r.length));
+      return `<table class="ctab"><thead><tr>${Array.from({length:n},(_,i)=>`<th>${fmt(rows[0][i]||'')}</th>`).join('')}</tr></thead><tbody>${rows.slice(1).map(r=>`<tr>${Array.from({length:n},(_,i)=>`<td>${fmt(r[i]||'')}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+    };
+    const render = () => {
+      let pts = '', k = 0, open = false;
+      String(v('dPoints')).split('\n').forEach(l => {
+        l = l.trim(); if (!l) return;
+        if (l === '{table}'){ if (open){ pts+='</ol>'; open=false; } pts += table(); return; }
+        if (!open){ pts += `<ol start="${k+1}">`; open = true; }
+        k++; pts += `<li>${fmt(l)}</li>`;
+      });
+      if (open) pts += '</ol>';
+      if (!/\{table\}/.test(v('dPoints')) && v('dTable')) pts += table();
+      const t = v('dTitle');
+      paper.innerHTML = `<div class="cert">
+        ${t?`<h1 class="center">${$('#dU').checked?`<u>${fmt(t)}</u>`:fmt(t)}</h1>`:''}
+        ${v('dSub')?`<p class="center red csub"><strong>${fmt(v('dSub'))}</strong></p>`:''}
+        ${v('dSub')||(!$('#dU').checked&&t)?'<hr class="thick">':''}
+        ${lines(v('dHead')).map(l=>`<p class="chead"><strong>${fmt(l)}</strong></p>`).join('')}
+        ${v('dBody')?`<p class="cbody">${fmt(v('dBody'))}</p>`:''}
+        ${pts}
+        ${(v('dSigL')||v('dSigR'))?`<table class="nb csig"><tr><td>${multi(v('dSigL'))}</td><td class="right">${multi(v('dSigR'))}</td></tr></table>`:''}
+        ${v('dSeal')?`<p class="center cseal">${fmt(v('dSeal'))}</p>`:''}
+        ${v('dBottom')?`<p class="cbottom">${multi(v('dBottom'))}</p>`:''}
+      </div>`;
+    };
+    let tm; const live = () => { clearTimeout(tm); tm = setTimeout(render, 350); };
+    Object.keys(FIELDS).forEach(id => $('#'+id).addEventListener('input', live));
+    $('#dU').onchange = render;
+    ['qOffice','qCode','qDistrict','qPlace','qMonth'].forEach(k => $('#'+k).addEventListener('change', saveQ));
+    tplSel.onchange = load;
+    $('#qApply').onclick = () => { saveQ(); load(); toast('വിവരങ്ങൾ ചേർത്തു.'); };
+    $('#dGo').onclick = () => { render(); toast('തയ്യാറായി — PDF / Word ഡൗൺലോഡ് ചെയ്യാം.'); };
+    $('#dSave').onclick = () => {
+      const cur = tplSel.value.startsWith('saved:') ? tplSel.value.slice(6) : '';
+      const name = (prompt('ഈ മാതൃകയ്ക്ക് ഒരു പേര് നൽകുക', cur || v('dTitle')) || '').trim();
+      if (!name) return;
+      saved[name] = Object.fromEntries(Object.entries(FIELDS).map(([id,f])=>[f, $('#'+id).value]));
+      saved[name].u = $('#dU').checked; saved[name].name = name;
+      LS('ods_decl_saved', saved); fillSel('saved:'+name); $('#dDel').style.display='';
+      toast('മാതൃക സേവ് ചെയ്തു: ' + name);
+    };
+    $('#dDel').onclick = () => {
+      const key = tplSel.value; if (!key.startsWith('saved:')) return;
+      if (!confirm('ഈ മാതൃക നീക്കം ചെയ്യട്ടെ?')) return;
+      delete saved[key.slice(6)]; LS('ods_decl_saved', saved); fillSel('salary'); load();
+    };
+    $('#dAi').onclick = async () => {
+      const d = v('dAiDesc'); if (!d) return toast('ഏതുതരം ഡിക്ലറേഷൻ വേണം എന്ന് എഴുതുക.');
+      const r = await ai('AI ഡിക്ലറേഷൻ തയ്യാറാക്കുന്നു…',
+`Draft a formal declaration/certificate for a Kerala government office or school, as requested below. Write it in the same language as the request (Malayalam or English). Use "________" blanks for any names, numbers or dates not given; do not invent them. Do not cite circular or GO numbers unless given.
+Office: ${v('qOffice') || '(not given)'}; Month: ${v('qMonth')}
+Request: ${d}
+Return ONLY JSON: {"title":"...","body":"optional single paragraph or empty","points":["Certified that ...", "..."],"sigRight":"signature block lines separated by \\n"}`);
+      if (!r) return;
+      $('#dTitle').value = r.title || ''; $('#dBody').value = r.body || '';
+      $('#dPoints').value = (r.points||[]).join('\n'); if (r.sigRight) $('#dSigR').value = r.sigRight;
+      $('#dSub').value=''; $('#dTable').value=''; render();
+    };
+    fillSel('salary'); load();
+  }
+},
 /* ---------- 1. Covering letter (AI) ---------- */
 { id:'cover', ai:true, c:'#e38a2a', cd:'#94500d', title:'കവറിങ് ലെറ്റർ', fname:'covering-letter',
   sub:'അയക്കുന്ന രേഖകളുടെ വിവരം നൽകിയാൽ AI ഔപചാരികമായ കവറിങ് ലെറ്റർ എഴുതും.',
@@ -872,11 +1040,11 @@ function heuristic(ls){
 /* ================= navigation ================= */
 const grid = $('#grid');
 grid.innerHTML = TOOLS.map(t=>`
-  <button class="tile" data-id="${t.id}" style="--c:${t.c};--cd:${t.cd};--i:${(TOOLS.indexOf(t)*0.09).toFixed(2)}s">
+  <button class="tile${t.wide?' wide':''}" data-id="${t.id}" style="--c:${t.c};--cd:${t.cd};--i:${(TOOLS.indexOf(t)*0.09).toFixed(2)}s">
     ${t.ai?'<span class="ai-pill">AI</span>':''}
     <div class="ico">${ICONS[t.id]}</div>
-    <h2>${t.title}</h2>
-    <p>${t.sub.split('. ')[0].replace(/[.]$/,'')}.</p>
+    <div><h2>${t.title}</h2>
+    <p>${t.sub.split(' — ')[0].split('. ')[0].replace(/[.]$/,'')}.</p></div>
   </button>`).join('');
 
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
